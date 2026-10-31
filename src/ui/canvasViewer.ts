@@ -2,14 +2,25 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { Stroke, PageStrokesMap } from '../types';
 import { StylusEngine } from '../engine/stylus';
 
-// Configure PDF.js worker
-try {
-  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.min.mjs');
+// Configure PDF.js worker with CSP blob fallback
+async function initPdfWorker() {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL) {
+      const workerUrl = chrome.runtime.getURL('pdf.worker.min.mjs');
+      try {
+        const resp = await fetch(workerUrl);
+        const script = await resp.text();
+        const blob = new Blob([script], { type: 'application/javascript' });
+        pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
+      } catch {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+      }
+    }
+  } catch (err) {
+    console.warn('[ClassroomStylus] Error configuring workerSrc:', err);
   }
-} catch (err) {
-  console.warn('[ClassroomStylus] Error configuring workerSrc:', err);
 }
+initPdfWorker();
 
 export interface CanvasViewerEvents {
   onStrokeDrawn: (pageIndex: number, stroke: Stroke) => void;

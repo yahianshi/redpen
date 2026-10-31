@@ -1,6 +1,7 @@
 import { PDFDocument } from 'pdf-lib';
 import { PdfFlattener } from '../src/services/flattener';
 import { StylusEngine } from '../src/engine/stylus';
+import { decodeClassroomParam } from '../src/content/detector';
 import { Stroke, StrokePoint } from '../src/types';
 
 async function runTestSuite() {
@@ -200,6 +201,10 @@ async function runTestSuite() {
     assert(match![1] === 'ODg3ODAxOTc2ODI1', 'courseId correctly parsed: ' + match![1]);
     assert(match![2] === 'ODk1NjIxNjc1MjI2', 'courseWorkId correctly parsed: ' + match![2]);
     assert(match![3] === 'NDQ2NzU2ODMwNzY2', 'studentSubId correctly parsed: ' + match![3]);
+
+    assert(decodeClassroomParam(match![1]) === '887801976825', 'courseId decoded to numeric ID: ' + decodeClassroomParam(match![1]));
+    assert(decodeClassroomParam(match![2]) === '895621675226', 'courseWorkId decoded to numeric ID: ' + decodeClassroomParam(match![2]));
+    assert(decodeClassroomParam(match![3]) === '446756830766', 'studentSubId decoded to numeric ID: ' + decodeClassroomParam(match![3]));
 
     // Test Drive file ID extraction from various Google preview formats
     const iframeSrc1 = 'https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/preview';

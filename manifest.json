@@ -20,8 +20,12 @@
   "content_scripts": [
     {
       "matches": [
-        "https://classroom.google.com/*"
+        "https://classroom.google.com/*",
+        "https://drive.google.com/file/d/*",
+        "https://drive.google.com/*",
+        "https://docs.google.com/*"
       ],
+      "all_frames": true,
       "js": [
         "content_script.js"
       ],

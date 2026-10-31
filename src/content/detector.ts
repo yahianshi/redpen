@@ -6,6 +6,19 @@ export interface DetectorEvents {
   onSubmissionClosed: () => void;
 }
 
+export function decodeClassroomParam(val?: string): string | undefined {
+  if (!val) return undefined;
+  // If already purely numeric digits, return as-is
+  if (/^\d+$/.test(val)) return val;
+  try {
+    const decoded = atob(val);
+    if (/^\d+$/.test(decoded)) return decoded;
+  } catch {
+    // If not valid base64 or decoding fails, keep original
+  }
+  return val;
+}
+
 export class ClassroomDetector {
   private lastUrl: string = '';
   private currentContext: ClassroomContext | null = null;
@@ -18,6 +31,18 @@ export class ClassroomDetector {
     this.lastUrl = window.location.href;
     this.initUrlListener();
     this.initDomObserver();
+    this.initMessageListener();
+  }
+
+  private initMessageListener() {
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'CLASSROOM_STYLUS_IFRAME_FILEID' && event.data.fileId) {
+        if (this.currentContext && !this.currentContext.fileId) {
+          this.currentContext.fileId = event.data.fileId;
+          this.events.onSubmissionChanged(this.currentContext);
+        }
+      }
+    });
   }
 
   isSubmissionUrl(url: string = window.location.href): boolean {
@@ -150,11 +175,14 @@ export class ClassroomDetector {
       }
     }
 
-    // 3. Inspect anchor links
-    const links = document.querySelectorAll<HTMLAnchorElement>('a[href*="drive.google.com"]');
+    // 3. Inspect anchor links (e.g. "Quiz 4.pdf ↗" title link or attachment chips)
+    const links = document.querySelectorAll<HTMLAnchorElement>('a[href]');
     for (const link of links) {
-      const match = this.extractFileIdFromString(link.href);
-      if (match) return match;
+      const href = link.href || '';
+      if (href.includes('drive.google.com') || href.includes('docs.google.com')) {
+        const match = this.extractFileIdFromString(href);
+        if (match) return match;
+      }
     }
 
     // 4. Performance resource timing fallback
@@ -201,14 +229,14 @@ export class ClassroomDetector {
   } {
     // Example: https://classroom.google.com/c/ODg3ODAxOTc2ODI1/a/ODk1NjIxNjc1MjI2/submissions/by-status/and-sort-first-name/student/NDQ2NzU2ODMwNzY2/m/ODk1NjE5MTI4ODI3
     const match = url.match(
-      /\/c\/([^/]+)\/a\/([^/]+)\/submissions\/(?:[^/]+\/)+student\/([^/?#]+)/
+      /\/c\/([^/]+)\/a\/([^/]+)\/submissions\/(?:[^/]+\/)*student\/([^/?#]+)(?:\/m\/([^/?#]+))?/
     );
 
     if (match) {
       return {
-        courseId: match[1],
-        courseWorkId: match[2],
-        submissionId: match[3],
+        courseId: decodeClassroomParam(match[1]),
+        courseWorkId: decodeClassroomParam(match[2]),
+        submissionId: decodeClassroomParam(match[3]),
       };
     }
 
@@ -218,9 +246,9 @@ export class ClassroomDetector {
     const studentMatch = url.match(/\/student\/([^/?#]+)/);
 
     return {
-      courseId: courseMatch ? courseMatch[1] : undefined,
-      courseWorkId: assignMatch ? assignMatch[1] : undefined,
-      submissionId: studentMatch ? studentMatch[1] : undefined,
+      courseId: decodeClassroomParam(courseMatch ? courseMatch[1] : undefined),
+      courseWorkId: decodeClassroomParam(assignMatch ? assignMatch[1] : undefined),
+      submissionId: decodeClassroomParam(studentMatch ? studentMatch[1] : undefined),
     };
   }
 

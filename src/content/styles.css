@@ -1,5 +1,83 @@
 /* Google Classroom Stylus Grading Canvas Stylesheet */
 
+/* Injected Button in Classroom's Top Sub-Header Bar (Next to Return / Switcher) */
+.classroom-stylus-topbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #1a73e8;
+  color: #ffffff;
+  border: 1px solid #1a73e8;
+  border-radius: 9999px;
+  height: 36px;
+  padding: 0 16px;
+  margin-right: 12px;
+  font-family: 'Google Sans', Roboto, system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+}
+
+.classroom-stylus-topbar-btn:hover {
+  background-color: #1765cc;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.classroom-stylus-topbar-btn.active {
+  background-color: #0d47a1;
+  border-color: #8ab4f8;
+  color: #ffffff;
+}
+
+/* Floating Action Launcher right over center preview */
+.classroom-stylus-floating-launcher {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  font-family: 'Google Sans', Roboto, system-ui, -apple-system, sans-serif;
+  animation: cs-fadein 0.25s ease-out;
+}
+
+@keyframes cs-fadein {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.classroom-stylus-launch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #202124;
+  color: #e8eaed;
+  border: 1.5px solid #8ab4f8;
+  border-radius: 9999px;
+  height: 38px;
+  padding: 0 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s ease;
+}
+
+.classroom-stylus-launch-btn:hover {
+  background-color: #2d2e30;
+  transform: scale(1.04);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+}
+
 /* Injected Pill Button into Classroom's Header Bar (#202124) */
 .classroom-stylus-inject-pill-btn {
   display: inline-flex;
@@ -261,18 +339,43 @@
   }
 }
 
+/* Active Container Override */
+.classroom-stylus-container-active {
+  position: relative !important;
+  overflow: hidden !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: calc(100vh - 120px) !important;
+}
+
 /* Center Canvas Viewer Root */
 .classroom-stylus-viewer-root {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #171717;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  z-index: 50;
+  position: absolute !important;
+  top: 48px !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: calc(100% - 48px) !important;
+  background-color: #171717 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  z-index: 1000 !important;
+}
+
+.classroom-stylus-toolbar-bar {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 48px !important;
+  background-color: #202124 !important;
+  border-bottom: 1px solid #3c4043 !important;
+  z-index: 1001 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .cs-scroll-container {
