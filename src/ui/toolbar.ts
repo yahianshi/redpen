@@ -13,9 +13,14 @@ export interface ToolbarEvents {
   onClose: () => void;
 }
 
+export interface ToolbarOptions {
+  showDedicatedTabButton?: boolean;
+}
+
 export class GradingToolbar {
   private container: HTMLElement;
   private events: ToolbarEvents;
+  private options: ToolbarOptions;
   private activeTool: ToolType = 'pen';
   private currentPenColor: string = '#ef4444';
   private currentPenThickness: number = 3;
@@ -25,8 +30,12 @@ export class GradingToolbar {
   private canUndo: boolean = false;
   private canRedo: boolean = false;
 
-  constructor(events: ToolbarEvents) {
+  constructor(events: ToolbarEvents, options: ToolbarOptions = {}) {
     this.events = events;
+    this.options = {
+      showDedicatedTabButton: true,
+      ...options,
+    };
     this.container = document.createElement('div');
     this.container.className = 'classroom-stylus-toolbar-bar';
     this.render();
@@ -81,17 +90,20 @@ export class GradingToolbar {
   }
 
   private render() {
+    const showDedicated = this.options.showDedicatedTabButton !== false;
+
     this.container.innerHTML = `
       <div class="cs-toolbar-inner">
         <!-- Left: Tool selector -->
         <div class="cs-tool-group">
           <!-- Pen Tool -->
-          <button type="button" class="cs-pill-btn cs-tool-btn ${this.activeTool === 'pen' ? 'active' : ''}" data-tool="pen" title="Pen">
+          <button type="button" class="cs-pill-btn cs-tool-btn ${this.activeTool === 'pen' ? 'active' : ''}" data-tool="pen" title="Pen (Draw annotations)">
             <svg class="cs-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/></svg>
             <span class="cs-tool-label">Pen</span>
+            <span class="cs-color-preview-dot" style="background-color: ${this.currentPenColor};"></span>
           </button>
 
-          <!-- Pen Colors & Presets Popup/Sub-bar -->
+          <!-- Pen Colors & Presets -->
           <div class="cs-pen-options" style="${this.activeTool === 'pen' ? '' : 'display: none;'}">
             <div class="cs-color-dots">
               <button type="button" class="cs-color-dot ${this.currentPenColor === '#ef4444' ? 'selected' : ''}" data-color="#ef4444" style="background-color: #ef4444;" title="Red (Grading)"></button>
@@ -100,9 +112,9 @@ export class GradingToolbar {
               <button type="button" class="cs-color-dot ${this.currentPenColor === '#000000' ? 'selected' : ''}" data-color="#000000" style="background-color: #000000;" title="Black"></button>
             </div>
             <div class="cs-thickness-pills">
-              <button type="button" class="cs-thick-btn ${this.currentPenThickness === 2 ? 'selected' : ''}" data-thick="2" title="Fine (2px)">• Fine</button>
-              <button type="button" class="cs-thick-btn ${this.currentPenThickness === 4 ? 'selected' : ''}" data-thick="4" title="Medium (4px)">•• Med</button>
-              <button type="button" class="cs-thick-btn ${this.currentPenThickness === 8 ? 'selected' : ''}" data-thick="8" title="Thick (8px)">••• Thick</button>
+              <button type="button" class="cs-thick-btn ${this.currentPenThickness === 2 ? 'selected' : ''}" data-thick="2" title="Fine (2px)">Fine</button>
+              <button type="button" class="cs-thick-btn ${this.currentPenThickness === 4 ? 'selected' : ''}" data-thick="4" title="Medium (4px)">Med</button>
+              <button type="button" class="cs-thick-btn ${this.currentPenThickness === 8 ? 'selected' : ''}" data-thick="8" title="Thick (8px)">Thick</button>
             </div>
           </div>
 
@@ -112,6 +124,7 @@ export class GradingToolbar {
           <button type="button" class="cs-pill-btn cs-tool-btn ${this.activeTool === 'highlighter' ? 'active' : ''}" data-tool="highlighter" title="Highlighter">
             <svg class="cs-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11-6 6v3h3l6-6"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>
             <span class="cs-tool-label">Highlight</span>
+            <span class="cs-color-preview-dot" style="background-color: ${this.currentHighlighterColor};"></span>
           </button>
 
           <div class="cs-highlighter-options" style="${this.activeTool === 'highlighter' ? '' : 'display: none;'}">
@@ -141,33 +154,37 @@ export class GradingToolbar {
           </button>
 
           <!-- Pen-Only Palm Rejection Toggle -->
-          <button type="button" class="cs-pill-btn cs-toggle-penmode ${this.penOnlyMode ? 'active' : ''}" title="${this.penOnlyMode ? 'Palm rejection ON: Accepts Stylus only. Click to allow mouse/touch.' : 'Palm rejection OFF: Accepts Stylus and Mouse. Click to lock to Stylus only.'}">
+          <button type="button" class="cs-pill-btn cs-toggle-penmode ${this.penOnlyMode ? 'active' : ''}" title="${this.penOnlyMode ? 'Palm rejection ON: Accepts Stylus only. Click to allow touch/mouse.' : 'Palm rejection OFF: Accepts Stylus and Touch. Click to lock to Stylus only.'}">
             <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <span>${this.penOnlyMode ? 'Stylus Only' : 'Stylus + Mouse'}</span>
+            <span class="cs-action-label">${this.penOnlyMode ? 'Stylus Only' : 'Stylus + Touch'}</span>
           </button>
 
           <!-- Reset to Original -->
           <button type="button" class="cs-pill-btn cs-btn-restore" title="Restore student's original unannotated submission">
             <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-            <span>↺ Reset Original</span>
+            <span class="cs-action-label">↺ Reset</span>
           </button>
 
-          <!-- Dedicated Tab Button -->
-          <button type="button" class="cs-pill-btn cs-btn-dedicated-tab" title="Open this grading canvas in its own dedicated browser tab">
-            <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            <span>⛶ Dedicated Tab</span>
-          </button>
+          ${
+            showDedicated
+              ? `<!-- Dedicated Tab Button -->
+              <button type="button" class="cs-pill-btn cs-btn-dedicated-tab" title="Open this grading canvas in its own dedicated fullscreen tab">
+                <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                <span class="cs-action-label">⛶ Tab</span>
+              </button>`
+              : ''
+          }
 
           <!-- Sync Status Pill -->
           <div class="cs-sync-pill cs-status-saved">
             <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>Saved</span>
+            <span class="cs-sync-label">Saved</span>
           </div>
 
           <!-- Close / Return -->
-          <button type="button" class="cs-pill-btn cs-btn-close" title="Exit stylus canvas">
+          <button type="button" class="cs-pill-btn cs-btn-close" title="Exit stylus grading">
             <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            <span>Close</span>
+            <span class="cs-action-label">Close</span>
           </button>
         </div>
       </div>

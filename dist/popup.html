@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Classroom Stylus Settings</title>
+  <title>Classroom Stylus Setup</title>
   <script type="module" crossorigin src="./popup.js"></script>
   <link rel="modulepreload" crossorigin href="./chunks/storage-C6fduYwJ.js">
   <link rel="stylesheet" crossorigin href="./popup.css">
@@ -22,82 +22,91 @@
     </header>
 
     <main class="popup-body">
-      <!-- Section 1: Google OAuth2 Setup -->
-      <section class="card">
-        <h2 class="card-title">Google Drive Authorization</h2>
-        <p class="card-desc">
-          Works seamlessly on <strong>Brave</strong> and <strong>Chrome</strong> using standard OAuth2.
-        </p>
+      <!-- Connected State Card (shown when authenticated) -->
+      <section id="connectedCard" class="card card-connected" style="display: none;">
+        <div class="connected-hero">
+          <div class="connected-icon-circle">✓</div>
+          <h2 class="connected-title">Connected to Google Drive!</h2>
+          <p class="connected-desc">Ready to grade student PDF submissions directly inside Google Classroom.</p>
+        </div>
+        <div class="btn-row-stacked">
+          <a href="https://classroom.google.com" target="_blank" class="btn btn-primary btn-full">
+            Open Google Classroom ↗
+          </a>
+          <button type="button" id="signOutBtn" class="btn btn-outline btn-full">
+            Disconnect Account
+          </button>
+        </div>
+      </section>
 
-        <div class="form-group">
-          <label class="form-label" for="redirectUri">Extension Redirect URI:</label>
+      <!-- Step-by-Step Setup Wizard (shown when not connected) -->
+      <div id="setupWizard" class="setup-wizard">
+        <!-- Step 1 -->
+        <section class="step-card">
+          <div class="step-badge-row">
+            <span class="step-num-pill">Step 1</span>
+            <span class="step-heading">Copy Redirect URI</span>
+          </div>
+          <p class="step-desc">
+            Your browser OAuth redirect URI:
+          </p>
           <div class="copy-input-row">
             <input type="text" id="redirectUri" readonly class="form-input readonly-input" />
-            <button type="button" id="copyRedirectBtn" class="btn btn-secondary">Copy</button>
+            <button type="button" id="copyRedirectBtn" class="btn btn-secondary">Copy URI</button>
           </div>
-          <span class="form-hint">Paste this into your Google Cloud OAuth Client "Authorized redirect URIs".</span>
-        </div>
+          <div class="step-link-box">
+            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="clickable-direct-link">
+              👉 Click to Open Google Cloud Credentials Page ↗
+            </a>
+          </div>
+          <p class="form-hint">
+            In Google Cloud, click <strong>Create Credentials → OAuth client ID → Web application</strong>, then paste the URI above into <em>"Authorized redirect URIs"</em>.
+          </p>
+        </section>
 
-        <div class="form-group">
-          <label class="form-label" for="clientIdInput">Google Cloud OAuth Client ID:</label>
-          <input
-            type="text"
-            id="clientIdInput"
-            placeholder="e.g. 123456789-abc.apps.googleusercontent.com"
-            class="form-input"
-          />
-        </div>
+        <!-- Step 2 -->
+        <section class="step-card">
+          <div class="step-badge-row">
+            <span class="step-num-pill">Step 2</span>
+            <span class="step-heading">Paste Client ID</span>
+          </div>
+          <p class="step-desc">
+            Paste your Google Cloud OAuth Client ID:
+          </p>
+          <div class="form-group">
+            <input
+              type="text"
+              id="clientIdInput"
+              placeholder="e.g. 123456789-abc.apps.googleusercontent.com"
+              class="form-input"
+            />
+          </div>
+        </section>
 
-        <div class="btn-row">
-          <button type="button" id="saveConnectBtn" class="btn btn-primary">
-            Connect with Google
+        <!-- Step 3 -->
+        <section class="step-card">
+          <div class="step-badge-row">
+            <span class="step-num-pill">Step 3</span>
+            <span class="step-heading">Authorize & Connect</span>
+          </div>
+          <p class="step-desc">
+            Sign in to authorize Drive & Classroom access:
+          </p>
+          <button type="button" id="saveConnectBtn" class="btn btn-primary btn-full">
+            🚀 Connect with Google
           </button>
-          <button type="button" id="signOutBtn" class="btn btn-outline" style="display: none;">
-            Sign Out
-          </button>
-        </div>
-        <div id="authStatusMessage" class="status-msg"></div>
-      </section>
-
-      <!-- Section 2: Teacher Grading Preferences -->
-      <section class="card">
-        <h2 class="card-title">Grading Defaults</h2>
-
-        <div class="form-group">
-          <label class="form-label">Default Pen Color:</label>
-          <div class="color-options" id="colorPickerGroup">
-            <button type="button" class="color-btn" data-color="#ef4444" style="background:#ef4444;" title="Red"></button>
-            <button type="button" class="color-btn" data-color="#22c55e" style="background:#22c55e;" title="Green"></button>
-            <button type="button" class="color-btn" data-color="#3b82f6" style="background:#3b82f6;" title="Blue"></button>
-            <button type="button" class="color-btn" data-color="#000000" style="background:#000000;" title="Black"></button>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Default Thickness:</label>
-          <select id="thicknessSelect" class="form-select">
-            <option value="2">Fine (2px)</option>
-            <option value="3" selected>Medium (3px)</option>
-            <option value="4">Thick (4px)</option>
-            <option value="8">Extra Thick (8px)</option>
-          </select>
-        </div>
-
-        <div class="form-group toggle-group">
-          <div>
-            <label class="toggle-label" for="penOnlyToggle">Palm Rejection (Stylus Only)</label>
-            <p class="form-hint">Ignores palm and finger touch while drawing with pen.</p>
-          </div>
-          <input type="checkbox" id="penOnlyToggle" checked class="form-toggle" />
-        </div>
-      </section>
+          <div id="authStatusMessage" class="status-msg"></div>
+        </section>
+      </div>
     </main>
 
     <footer class="popup-footer">
-      <a href="https://classroom.google.com" target="_blank" class="footer-link">Open Google Classroom ↗</a>
-      <span class="version-text">v1.0.0</span>
+      <a href="https://classroom.google.com" target="_blank" class="footer-link">Google Classroom ↗</a>
+      <span class="version-text">v1.1.0 • Brave & Chrome</span>
     </footer>
   </div>
 
+</body>
+</html>
 </body>
 </html>

@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     onClose: () => {
       window.close();
     },
-  });
+  }, { showDedicatedTabButton: false });
 
   toolbarHost.appendChild(toolbar.getElement());
 

@@ -1,4 +1,4 @@
-import{t as e}from"./chunks/storage-C6fduYwJ.js";var t=Object.create,n=Object.defineProperty,r=Object.getOwnPropertyDescriptor,i=Object.getOwnPropertyNames,a=Object.getPrototypeOf,o=Object.prototype.hasOwnProperty,s=(e,t)=>()=>(t||(e((t={exports:{}}).exports,t,t.exports),e=null),t.exports),c=(e,t,a,s)=>{if(t&&typeof t==`object`||typeof t==`function`)for(var c=i(t),l=0,u=c.length,d;l<u;l++)d=c[l],!o.call(e,d)&&d!==a&&n(e,d,{get:(e=>t[e]).bind(null,d),enumerable:!(s=r(t,d))||s.enumerable});return e},l=(e,r,i)=>(i=e==null?{}:t(a(e)),c(r||!e||!e.__esModule||!o.call(e,`default`)?n(i,`default`,{value:e,enumerable:!0}):i,e)),u=class{container;events;activeTool=`pen`;currentPenColor=`#ef4444`;currentPenThickness=3;currentHighlighterColor=`#facc15`;penOnlyMode=!0;syncStatus=`saved`;canUndo=!1;canRedo=!1;constructor(e){this.events=e,this.container=document.createElement(`div`),this.container.className=`classroom-stylus-toolbar-bar`,this.render(),this.bindEvents(),this.bindKeyShortcuts()}getElement(){return this.container}setSyncStatus(e,t){this.syncStatus=e;let n=this.container.querySelector(`.cs-sync-pill`);n&&(n.className=`cs-sync-pill cs-status-${e}`,e===`saved`?(n.innerHTML=`
+import{t as e}from"./chunks/storage-C6fduYwJ.js";var t=Object.create,n=Object.defineProperty,r=Object.getOwnPropertyDescriptor,i=Object.getOwnPropertyNames,a=Object.getPrototypeOf,o=Object.prototype.hasOwnProperty,s=(e,t)=>()=>(t||(e((t={exports:{}}).exports,t,t.exports),e=null),t.exports),c=(e,t,a,s)=>{if(t&&typeof t==`object`||typeof t==`function`)for(var c=i(t),l=0,u=c.length,d;l<u;l++)d=c[l],!o.call(e,d)&&d!==a&&n(e,d,{get:(e=>t[e]).bind(null,d),enumerable:!(s=r(t,d))||s.enumerable});return e},l=(e,r,i)=>(i=e==null?{}:t(a(e)),c(r||!e||!e.__esModule||!o.call(e,`default`)?n(i,`default`,{value:e,enumerable:!0}):i,e)),u=class{container;events;options;activeTool=`pen`;currentPenColor=`#ef4444`;currentPenThickness=3;currentHighlighterColor=`#facc15`;penOnlyMode=!0;syncStatus=`saved`;canUndo=!1;canRedo=!1;constructor(e,t={}){this.events=e,this.options={showDedicatedTabButton:!0,...t},this.container=document.createElement(`div`),this.container.className=`classroom-stylus-toolbar-bar`,this.render(),this.bindEvents(),this.bindKeyShortcuts()}getElement(){return this.container}setSyncStatus(e,t){this.syncStatus=e;let n=this.container.querySelector(`.cs-sync-pill`);n&&(n.className=`cs-sync-pill cs-status-${e}`,e===`saved`?(n.innerHTML=`
         <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         <span>Saved</span>
       `,n.removeAttribute(`title`)):e===`syncing`?(n.innerHTML=`
@@ -10,17 +10,18 @@ import{t as e}from"./chunks/storage-C6fduYwJ.js";var t=Object.create,n=Object.de
       `,n.removeAttribute(`title`)):e===`error`&&(n.innerHTML=`
         <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <span>Sync error</span>
-      `,t&&n.setAttribute(`title`,t)))}setHistoryState(e,t){this.canUndo=e,this.canRedo=t;let n=this.container.querySelector(`.cs-btn-undo`),r=this.container.querySelector(`.cs-btn-redo`);n&&(n.disabled=!e),r&&(r.disabled=!t)}render(){this.container.innerHTML=`
+      `,t&&n.setAttribute(`title`,t)))}setHistoryState(e,t){this.canUndo=e,this.canRedo=t;let n=this.container.querySelector(`.cs-btn-undo`),r=this.container.querySelector(`.cs-btn-redo`);n&&(n.disabled=!e),r&&(r.disabled=!t)}render(){let e=this.options.showDedicatedTabButton!==!1;this.container.innerHTML=`
       <div class="cs-toolbar-inner">
         <!-- Left: Tool selector -->
         <div class="cs-tool-group">
           <!-- Pen Tool -->
-          <button type="button" class="cs-pill-btn cs-tool-btn ${this.activeTool===`pen`?`active`:``}" data-tool="pen" title="Pen">
+          <button type="button" class="cs-pill-btn cs-tool-btn ${this.activeTool===`pen`?`active`:``}" data-tool="pen" title="Pen (Draw annotations)">
             <svg class="cs-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/></svg>
             <span class="cs-tool-label">Pen</span>
+            <span class="cs-color-preview-dot" style="background-color: ${this.currentPenColor};"></span>
           </button>
 
-          <!-- Pen Colors & Presets Popup/Sub-bar -->
+          <!-- Pen Colors & Presets -->
           <div class="cs-pen-options" style="${this.activeTool===`pen`?``:`display: none;`}">
             <div class="cs-color-dots">
               <button type="button" class="cs-color-dot ${this.currentPenColor===`#ef4444`?`selected`:``}" data-color="#ef4444" style="background-color: #ef4444;" title="Red (Grading)"></button>
@@ -29,9 +30,9 @@ import{t as e}from"./chunks/storage-C6fduYwJ.js";var t=Object.create,n=Object.de
               <button type="button" class="cs-color-dot ${this.currentPenColor===`#000000`?`selected`:``}" data-color="#000000" style="background-color: #000000;" title="Black"></button>
             </div>
             <div class="cs-thickness-pills">
-              <button type="button" class="cs-thick-btn ${this.currentPenThickness===2?`selected`:``}" data-thick="2" title="Fine (2px)">• Fine</button>
-              <button type="button" class="cs-thick-btn ${this.currentPenThickness===4?`selected`:``}" data-thick="4" title="Medium (4px)">•• Med</button>
-              <button type="button" class="cs-thick-btn ${this.currentPenThickness===8?`selected`:``}" data-thick="8" title="Thick (8px)">••• Thick</button>
+              <button type="button" class="cs-thick-btn ${this.currentPenThickness===2?`selected`:``}" data-thick="2" title="Fine (2px)">Fine</button>
+              <button type="button" class="cs-thick-btn ${this.currentPenThickness===4?`selected`:``}" data-thick="4" title="Medium (4px)">Med</button>
+              <button type="button" class="cs-thick-btn ${this.currentPenThickness===8?`selected`:``}" data-thick="8" title="Thick (8px)">Thick</button>
             </div>
           </div>
 
@@ -41,6 +42,7 @@ import{t as e}from"./chunks/storage-C6fduYwJ.js";var t=Object.create,n=Object.de
           <button type="button" class="cs-pill-btn cs-tool-btn ${this.activeTool===`highlighter`?`active`:``}" data-tool="highlighter" title="Highlighter">
             <svg class="cs-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11-6 6v3h3l6-6"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>
             <span class="cs-tool-label">Highlight</span>
+            <span class="cs-color-preview-dot" style="background-color: ${this.currentHighlighterColor};"></span>
           </button>
 
           <div class="cs-highlighter-options" style="${this.activeTool===`highlighter`?``:`display: none;`}">
@@ -70,33 +72,33 @@ import{t as e}from"./chunks/storage-C6fduYwJ.js";var t=Object.create,n=Object.de
           </button>
 
           <!-- Pen-Only Palm Rejection Toggle -->
-          <button type="button" class="cs-pill-btn cs-toggle-penmode ${this.penOnlyMode?`active`:``}" title="${this.penOnlyMode?`Palm rejection ON: Accepts Stylus only. Click to allow mouse/touch.`:`Palm rejection OFF: Accepts Stylus and Mouse. Click to lock to Stylus only.`}">
+          <button type="button" class="cs-pill-btn cs-toggle-penmode ${this.penOnlyMode?`active`:``}" title="${this.penOnlyMode?`Palm rejection ON: Accepts Stylus only. Click to allow touch/mouse.`:`Palm rejection OFF: Accepts Stylus and Touch. Click to lock to Stylus only.`}">
             <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <span>${this.penOnlyMode?`Stylus Only`:`Stylus + Mouse`}</span>
+            <span class="cs-action-label">${this.penOnlyMode?`Stylus Only`:`Stylus + Touch`}</span>
           </button>
 
           <!-- Reset to Original -->
           <button type="button" class="cs-pill-btn cs-btn-restore" title="Restore student's original unannotated submission">
             <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-            <span>↺ Reset Original</span>
+            <span class="cs-action-label">↺ Reset</span>
           </button>
 
-          <!-- Dedicated Tab Button -->
-          <button type="button" class="cs-pill-btn cs-btn-dedicated-tab" title="Open this grading canvas in its own dedicated browser tab">
-            <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            <span>⛶ Dedicated Tab</span>
-          </button>
+          ${e?`<!-- Dedicated Tab Button -->
+              <button type="button" class="cs-pill-btn cs-btn-dedicated-tab" title="Open this grading canvas in its own dedicated fullscreen tab">
+                <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                <span class="cs-action-label">⛶ Tab</span>
+              </button>`:``}
 
           <!-- Sync Status Pill -->
           <div class="cs-sync-pill cs-status-saved">
             <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>Saved</span>
+            <span class="cs-sync-label">Saved</span>
           </div>
 
           <!-- Close / Return -->
-          <button type="button" class="cs-pill-btn cs-btn-close" title="Exit stylus canvas">
+          <button type="button" class="cs-pill-btn cs-btn-close" title="Exit stylus grading">
             <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            <span>Close</span>
+            <span class="cs-action-label">Close</span>
           </button>
         </div>
       </div>
@@ -234,4 +236,4 @@ end`},_l=function(){return`<`+[...arguments].join(``)+`>`},vl=function(e){return
         <h3 class="cs-error-title">No Google Drive File Specified</h3>
         <p class="cs-error-msg">Please open this page from Google Classroom or provide ?fileId={driveId} in the URL.</p>
       </div>
-    `;return}let o=null,s=null,c,l=null,d=!1,f=!1,p=await e.getSettings(),m=new Pa({penOnlyMode:p.penOnlyMode,activeTool:`pen`,penColor:p.defaultPenColor,penThickness:p.defaultPenThickness,highlighterColor:p.defaultHighlighterColor,highlighterThickness:p.defaultHighlighterThickness,onStrokeAdded:()=>_(),onStrokeErased:()=>_(),onHistoryChange:(e,t)=>g.setHistoryState(e,t)}),h=new Ia(m,{onStrokeDrawn:()=>_(),onStrokeErased:()=>_()});a.appendChild(h.getElement());let g=new u({onToolSelect:e=>m.updateOptions({activeTool:e}),onPenColorChange:e=>m.updateOptions({penColor:e}),onPenThicknessChange:e=>m.updateOptions({penThickness:e}),onHighlighterColorChange:e=>m.updateOptions({highlighterColor:e}),onUndo:()=>{let e=m.undo(h.getStrokes());e&&(h.redrawSinglePageIndex(e.affectedPageIndex),_())},onRedo:()=>{let e=m.redo(h.getStrokes());e&&(h.redrawSinglePageIndex(e.affectedPageIndex),_())},onTogglePenOnly:e=>m.updateOptions({penOnlyMode:e}),onRestoreOriginal:async()=>{if(s&&o){g.setSyncStatus(`syncing`);try{let t=o;if(c){let e=await y({type:`DRIVE_DOWNLOAD_REVISION`,fileId:n,revisionId:c});e.success&&e.data&&(t=x(e.data),o=t)}s.pageStrokes={},s.isDirty=!1,await e.clearSessionStrokes(n);let r=b(t);await y({type:`DRIVE_UPLOAD_FILE`,fileId:n,pdfBase64:r}),h.setStrokes({}),g.setSyncStatus(`saved`)}catch(e){g.setSyncStatus(`error`,e.message)}}},onOpenDedicatedTab:()=>{},onClose:()=>{window.close()}});i.appendChild(g.getElement()),g.setSyncStatus(`syncing`);try{let t=await e.getCleanBasePdf(n);if(t)o=t.data,c=t.originalRevisionId;else{let t=await y({type:`DRIVE_DOWNLOAD_FILE`,fileId:n});if(!t.success)throw Error(t.error||`Failed to download PDF`);o=x(t.data);try{let e=await y({type:`DRIVE_LIST_REVISIONS`,fileId:n});e.success&&e.data&&e.data.length>0&&(c=e.data[0].id,await y({type:`DRIVE_PIN_REVISION`,fileId:n,revisionId:c}))}catch{}await e.saveCleanBasePdf(n,o,c)}s=await e.getSessionStrokes(n),await h.loadPdf(o,s.pageStrokes||{}),g.setSyncStatus(`saved`)}catch(e){g.setSyncStatus(`error`,e.message)}function _(){s&&(s.isDirty=!0,s.pageStrokes=h.getStrokes(),s.lastSavedTime=Date.now(),e.saveSessionStrokes(s),g.setSyncStatus(`unsaved`),l&&clearTimeout(l),l=setTimeout(v,2500))}async function v(){if(l&&clearTimeout(l),s&&o){if(d)f=!0;else{d=!0,g.setSyncStatus(`syncing`);try{let t=h.getStrokes(),r=b((await lm.flattenStrokes(o,t)).slice().buffer),i=await y({type:`DRIVE_UPLOAD_FILE`,fileId:n,pdfBase64:r});if(!i.success)throw Error(i.error||`Upload failed`);s.isDirty=!1,await e.saveSessionStrokes(s),g.setSyncStatus(`saved`)}catch(e){g.setSyncStatus(`error`,e.message)}finally{d=!1,f&&(f=!1,v())}}}}function y(e){return new Promise(t=>{chrome.runtime.sendMessage(e,e=>{t(e||{success:!1,error:`Empty response`})})})}function b(e){let t=``,n=new Uint8Array(e);for(let e=0;e<n.byteLength;e++)t+=String.fromCharCode(n[e]);return btoa(t)}function x(e){let t=atob(e),n=new Uint8Array(t.length);for(let e=0;e<t.length;e++)n[e]=t.charCodeAt(e);return n.buffer}});
+    `;return}let o=null,s=null,c,l=null,d=!1,f=!1,p=await e.getSettings(),m=new Pa({penOnlyMode:p.penOnlyMode,activeTool:`pen`,penColor:p.defaultPenColor,penThickness:p.defaultPenThickness,highlighterColor:p.defaultHighlighterColor,highlighterThickness:p.defaultHighlighterThickness,onStrokeAdded:()=>_(),onStrokeErased:()=>_(),onHistoryChange:(e,t)=>g.setHistoryState(e,t)}),h=new Ia(m,{onStrokeDrawn:()=>_(),onStrokeErased:()=>_()});a.appendChild(h.getElement());let g=new u({onToolSelect:e=>m.updateOptions({activeTool:e}),onPenColorChange:e=>m.updateOptions({penColor:e}),onPenThicknessChange:e=>m.updateOptions({penThickness:e}),onHighlighterColorChange:e=>m.updateOptions({highlighterColor:e}),onUndo:()=>{let e=m.undo(h.getStrokes());e&&(h.redrawSinglePageIndex(e.affectedPageIndex),_())},onRedo:()=>{let e=m.redo(h.getStrokes());e&&(h.redrawSinglePageIndex(e.affectedPageIndex),_())},onTogglePenOnly:e=>m.updateOptions({penOnlyMode:e}),onRestoreOriginal:async()=>{if(s&&o){g.setSyncStatus(`syncing`);try{let t=o;if(c){let e=await y({type:`DRIVE_DOWNLOAD_REVISION`,fileId:n,revisionId:c});e.success&&e.data&&(t=x(e.data),o=t)}s.pageStrokes={},s.isDirty=!1,await e.clearSessionStrokes(n);let r=b(t);await y({type:`DRIVE_UPLOAD_FILE`,fileId:n,pdfBase64:r}),h.setStrokes({}),g.setSyncStatus(`saved`)}catch(e){g.setSyncStatus(`error`,e.message)}}},onOpenDedicatedTab:()=>{},onClose:()=>{window.close()}},{showDedicatedTabButton:!1});i.appendChild(g.getElement()),g.setSyncStatus(`syncing`);try{let t=await e.getCleanBasePdf(n);if(t)o=t.data,c=t.originalRevisionId;else{let t=await y({type:`DRIVE_DOWNLOAD_FILE`,fileId:n});if(!t.success)throw Error(t.error||`Failed to download PDF`);o=x(t.data);try{let e=await y({type:`DRIVE_LIST_REVISIONS`,fileId:n});e.success&&e.data&&e.data.length>0&&(c=e.data[0].id,await y({type:`DRIVE_PIN_REVISION`,fileId:n,revisionId:c}))}catch{}await e.saveCleanBasePdf(n,o,c)}s=await e.getSessionStrokes(n),await h.loadPdf(o,s.pageStrokes||{}),g.setSyncStatus(`saved`)}catch(e){g.setSyncStatus(`error`,e.message)}function _(){s&&(s.isDirty=!0,s.pageStrokes=h.getStrokes(),s.lastSavedTime=Date.now(),e.saveSessionStrokes(s),g.setSyncStatus(`unsaved`),l&&clearTimeout(l),l=setTimeout(v,2500))}async function v(){if(l&&clearTimeout(l),s&&o){if(d)f=!0;else{d=!0,g.setSyncStatus(`syncing`);try{let t=h.getStrokes(),r=b((await lm.flattenStrokes(o,t)).slice().buffer),i=await y({type:`DRIVE_UPLOAD_FILE`,fileId:n,pdfBase64:r});if(!i.success)throw Error(i.error||`Upload failed`);s.isDirty=!1,await e.saveSessionStrokes(s),g.setSyncStatus(`saved`)}catch(e){g.setSyncStatus(`error`,e.message)}finally{d=!1,f&&(f=!1,v())}}}}function y(e){return new Promise(t=>{chrome.runtime.sendMessage(e,e=>{t(e||{success:!1,error:`Empty response`})})})}function b(e){let t=``,n=new Uint8Array(e);for(let e=0;e<n.byteLength;e++)t+=String.fromCharCode(n[e]);return btoa(t)}function x(e){let t=atob(e),n=new Uint8Array(t.length);for(let e=0;e<t.length;e++)n[e]=t.charCodeAt(e);return n.buffer}});

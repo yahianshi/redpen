@@ -74,7 +74,7 @@ class ClassroomStylusApp {
   private isCanvasActive: boolean = false;
   private overlayContainer: HTMLElement | null = null;
   private topBarButton: HTMLButtonElement | null = null;
-  private floatingLauncher: HTMLElement | null = null;
+  private sidebarButton: HTMLButtonElement | null = null;
   private toolbar: GradingToolbar | null = null;
   private canvasViewer: CanvasViewer | null = null;
   private stylusEngine: StylusEngine | null = null;
@@ -149,9 +149,132 @@ class ClassroomStylusApp {
     this.currentContext = null;
   }
 
+  private isEligiblePdfSubmission(): boolean {
+    const url = window.location.href;
+    // URL pattern: https://classroom.google.com/c/*/a/*/submissions/.../student/...
+    const isStudentSubmissionUrl = /\/c\/[^/]+\/a\/[^/]+\/submissions\/(?:[^/]+\/)*student\/[^/?#]+/i.test(url);
+    if (!isStudentSubmissionUrl) {
+      return false;
+    }
+
+    // Check if filename contains .pdf
+    const fileName = this.extractActiveFileName();
+    if (fileName && /\.pdf\b/i.test(fileName)) {
+      return true;
+    }
+
+    // Check right sidebar chips
+    const chip = this.findSubmissionPdfChip();
+    if (chip) {
+      return true;
+    }
+
+    // Check if any element mentions .pdf
+    const anyPdf = document.querySelector<HTMLElement>('[title*=".pdf" i], [aria-label*=".pdf" i]');
+    if (anyPdf) {
+      return true;
+    }
+
+    // Check if Drive preview iframe exists
+    const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe');
+    for (const f of iframes) {
+      const src = f.src || f.getAttribute('data-src') || '';
+      if (src.includes('drive.google.com') || src.includes('docs.google.com')) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   private injectButtons() {
+    if (!this.isEligiblePdfSubmission()) {
+      this.removeButtons();
+      return;
+    }
+
+    this.injectRightSidebarButton();
     this.injectTopBarButton();
-    this.injectFloatingLauncher();
+  }
+
+  private findSubmissionPdfChip(): HTMLElement | null {
+    // 1. Look for elements in sidebar containing .pdf
+    const chips = document.querySelectorAll<HTMLElement>(
+      'aside [title*=".pdf" i], aside [aria-label*=".pdf" i], div[class*="sidebar" i] [title*=".pdf" i]'
+    );
+    for (const c of chips) {
+      const chipContainer = c.closest<HTMLElement>('[role="button"], [role="link"], li, div[class*="chip" i], div[class*="item" i]') || c;
+      return chipContainer;
+    }
+
+    // 2. Search all elements in the right sidebar for .pdf text
+    const rightSections = document.querySelectorAll<HTMLElement>('aside, div[class*="sidebar" i], div');
+    for (const sec of rightSections) {
+      if (sec.clientWidth > 220 && sec.clientWidth < 450 && sec.textContent?.includes('Grade and feedback')) {
+        const leafElements = sec.querySelectorAll<HTMLElement>('span, a, div, p');
+        for (const el of leafElements) {
+          if (el.childElementCount <= 1 && /\.pdf\b/i.test((el.textContent || '').trim())) {
+            const card = el.closest<HTMLElement>('[role="button"], [role="link"], li, div[class*="chip" i], div[class*="item" i]') || el;
+            return card;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private findRightSidebarMountPoint(): { container?: HTMLElement; insertAfter?: HTMLElement } | null {
+    const chip = this.findSubmissionPdfChip();
+    if (chip) {
+      return { insertAfter: chip };
+    }
+
+    const allDivs = document.querySelectorAll<HTMLElement>('aside, div[class*="sidebar" i], div');
+    for (const el of allDivs) {
+      if (el.clientWidth > 220 && el.clientWidth < 450 && el.textContent?.includes('Grade and feedback')) {
+        const gradeSection = el.querySelector<HTMLElement>('input[type="number"], [aria-label*="grade" i]')?.closest<HTMLElement>('div');
+        if (gradeSection) {
+          return { insertAfter: (gradeSection.previousElementSibling as HTMLElement) || gradeSection };
+        }
+        return { container: el };
+      }
+    }
+
+    return null;
+  }
+
+  private injectRightSidebarButton() {
+    if (this.sidebarButton && document.body.contains(this.sidebarButton)) {
+      return;
+    }
+
+    const host = this.findRightSidebarMountPoint();
+    if (!host) {
+      setTimeout(() => this.injectRightSidebarButton(), 400);
+      return;
+    }
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'classroom-stylus-sidebar-btn';
+    btn.innerHTML = `
+      <span class="cs-btn-icon">✏️</span>
+      <span class="cs-btn-text">Grade with Stylus</span>
+    `;
+
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.toggleCanvasMode();
+    });
+
+    if (host.insertAfter && host.insertAfter.parentElement) {
+      host.insertAfter.parentElement.insertBefore(btn, host.insertAfter.nextSibling);
+    } else if (host.container) {
+      host.container.appendChild(btn);
+    }
+
+    this.sidebarButton = btn;
   }
 
   private injectTopBarButton() {
@@ -187,40 +310,14 @@ class ClassroomStylusApp {
     this.topBarButton = btn;
   }
 
-  private injectFloatingLauncher() {
-    if (this.floatingLauncher && document.body.contains(this.floatingLauncher)) {
-      return;
-    }
-
-    const launcher = document.createElement('div');
-    launcher.className = 'classroom-stylus-floating-launcher';
-    launcher.innerHTML = `
-      <button type="button" class="classroom-stylus-launch-btn">
-        <span class="cs-btn-icon">✏️</span>
-        <span class="cs-btn-text">Grade with Stylus</span>
-      </button>
-    `;
-
-    const btn = launcher.querySelector<HTMLButtonElement>('.classroom-stylus-launch-btn');
-    if (btn) {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        this.enterCanvasMode();
-      });
-    }
-
-    document.body.appendChild(launcher);
-    this.floatingLauncher = launcher;
-  }
-
   private removeButtons() {
     if (this.topBarButton && this.topBarButton.parentNode) {
       this.topBarButton.parentNode.removeChild(this.topBarButton);
       this.topBarButton = null;
     }
-    if (this.floatingLauncher && this.floatingLauncher.parentNode) {
-      this.floatingLauncher.parentNode.removeChild(this.floatingLauncher);
-      this.floatingLauncher = null;
+    if (this.sidebarButton && this.sidebarButton.parentNode) {
+      this.sidebarButton.parentNode.removeChild(this.sidebarButton);
+      this.sidebarButton = null;
     }
   }
 
@@ -278,8 +375,10 @@ class ClassroomStylusApp {
       const textEl = this.topBarButton.querySelector('.cs-btn-text');
       if (textEl) textEl.textContent = '✓ Grading Active';
     }
-    if (this.floatingLauncher) {
-      this.floatingLauncher.style.display = 'none';
+    if (this.sidebarButton) {
+      this.sidebarButton.classList.add('active');
+      const textEl = this.sidebarButton.querySelector('.cs-btn-text');
+      if (textEl) textEl.textContent = '✓ Grading Active (Click to Exit)';
     }
 
     // 2. Resolve Google Drive fileId early (before hiding iframe or DOM elements)
@@ -330,7 +429,7 @@ class ClassroomStylusApp {
       previewHost.style.setProperty('position', 'relative', 'important');
       previewHost.style.setProperty('width', '100%', 'important');
       previewHost.style.setProperty('height', '100%', 'important');
-      previewHost.style.setProperty('min-height', 'calc(100vh - 80px)', 'important');
+      previewHost.style.setProperty('max-height', 'calc(100vh - 110px)', 'important');
       previewHost.style.setProperty('background-color', '#171717', 'important');
       previewHost.style.setProperty('display', 'flex', 'important');
       previewHost.style.setProperty('flex-direction', 'column', 'important');
@@ -344,7 +443,7 @@ class ClassroomStylusApp {
         bottom: 0 !important;
         width: 100% !important;
         height: 100% !important;
-        min-height: calc(100vh - 80px) !important;
+        max-height: 100% !important;
         z-index: 1000 !important;
         background-color: #171717 !important;
         display: flex !important;
@@ -755,8 +854,10 @@ class ClassroomStylusApp {
       if (textEl) textEl.textContent = 'Grade with Stylus';
     }
 
-    if (this.floatingLauncher) {
-      this.floatingLauncher.style.display = 'block';
+    if (this.sidebarButton) {
+      this.sidebarButton.classList.remove('active');
+      const textEl = this.sidebarButton.querySelector('.cs-btn-text');
+      if (textEl) textEl.textContent = 'Grade with Stylus';
     }
 
     if (this.toolbar) {

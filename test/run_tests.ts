@@ -229,6 +229,17 @@ async function runTestSuite() {
     assert(fnMatch !== null && fnMatch[1].trim() === 'math quiz 4 .pdf', 'Matched student filename with spacing before .pdf');
     const baseClean = fnMatch![1].replace(/\s*\.pdf$/i, '').trim();
     assert(baseClean === 'math quiz 4', 'Base filename extracted cleanly: ' + baseClean);
+
+    // Test student submission URL filter (only show on active student submissions with pdf)
+    const validStudentSubUrl = 'https://classroom.google.com/c/ODg3ODAxOTc2ODI1/a/ODk1NjIxNjc1MjI2/submissions/by-status/and-sort-first-name/student/ODc1MzIxNTk0NTM5/m/ODk1NjIyNTI3NzQ0';
+    const subPattern = /\/c\/[^/]+\/a\/[^/]+\/submissions\/(?:[^/]+\/)*student\/[^/?#]+/i;
+    assert(subPattern.test(validStudentSubUrl) === true, 'Eligible student submission URL correctly matched');
+
+    const streamUrl = 'https://classroom.google.com/c/ODg3ODAxOTc2ODI1';
+    assert(subPattern.test(streamUrl) === false, 'Course root URL correctly rejected from showing button');
+
+    const allSubmissionsUrl = 'https://classroom.google.com/c/ODg3ODAxOTc2ODI1/a/ODk1NjIxNjc1MjI2/submissions/by-status';
+    assert(subPattern.test(allSubmissionsUrl) === false, 'Ungraded submissions overview correctly rejected without active student');
   } catch (e: any) {
     console.error('URL parsing test error:', e);
     failed++;
