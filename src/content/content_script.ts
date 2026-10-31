@@ -201,11 +201,13 @@ class ClassroomStylusApp {
       </button>
     `;
 
-    const btn = launcher.querySelector<HTMLButtonElement>('.classroom-stylus-launch-btn')!;
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.enterCanvasMode();
-    });
+    const btn = launcher.querySelector<HTMLButtonElement>('.classroom-stylus-launch-btn');
+    if (btn) {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.enterCanvasMode();
+      });
+    }
 
     document.body.appendChild(launcher);
     this.floatingLauncher = launcher;
@@ -270,10 +272,11 @@ class ClassroomStylusApp {
     console.log('[ClassroomStylus] Entering Canvas Mode...');
     this.isCanvasActive = true;
 
-    // 1. Immediately update button states
+    // 1. Immediately update button states safely
     if (this.topBarButton) {
       this.topBarButton.classList.add('active');
-      this.topBarButton.querySelector('.cs-btn-text')!.textContent = '✓ Grading Active';
+      const textEl = this.topBarButton.querySelector('.cs-btn-text');
+      if (textEl) textEl.textContent = '✓ Grading Active';
     }
     if (this.floatingLauncher) {
       this.floatingLauncher.style.display = 'none';
@@ -677,7 +680,8 @@ class ClassroomStylusApp {
 
     if (this.topBarButton) {
       this.topBarButton.classList.remove('active');
-      this.topBarButton.querySelector('.cs-btn-text')!.textContent = 'Grade with Stylus';
+      const textEl = this.topBarButton.querySelector('.cs-btn-text');
+      if (textEl) textEl.textContent = 'Grade with Stylus';
     }
 
     if (this.floatingLauncher) {

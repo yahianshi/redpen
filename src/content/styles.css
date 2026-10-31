@@ -339,7 +339,42 @@
   }
 }
 
-/* Active Container Override */
+/* Active Container & Panel Override */
+.classroom-stylus-overlay-panel {
+  position: fixed !important;
+  background-color: #171717 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  z-index: 9999 !important;
+}
+
+.classroom-stylus-overlay-panel .classroom-stylus-toolbar-bar {
+  position: relative !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 48px !important;
+  width: 100% !important;
+  flex-shrink: 0 !important;
+  background-color: #202124 !important;
+  border-bottom: 1px solid #3c4043 !important;
+  z-index: 1001 !important;
+}
+
+.classroom-stylus-overlay-panel .classroom-stylus-viewer-root {
+  position: relative !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  flex: 1 !important;
+  height: calc(100% - 48px) !important;
+  background-color: #171717 !important;
+  z-index: 1000 !important;
+}
+
 .classroom-stylus-container-active {
   position: relative !important;
   overflow: hidden !important;

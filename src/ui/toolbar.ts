@@ -280,8 +280,8 @@ export class GradingToolbar {
 
     document.body.appendChild(modalOverlay);
 
-    const cancelBtn = modalOverlay.querySelector('.cs-modal-cancel')!;
-    const confirmBtn = modalOverlay.querySelector('.cs-modal-confirm')!;
+    const cancelBtn = modalOverlay.querySelector('.cs-modal-cancel');
+    const confirmBtn = modalOverlay.querySelector('.cs-modal-confirm');
 
     const close = () => {
       if (modalOverlay.parentNode) {
@@ -289,8 +289,8 @@ export class GradingToolbar {
       }
     };
 
-    cancelBtn.addEventListener('click', close);
-    confirmBtn.addEventListener('click', () => {
+    cancelBtn?.addEventListener('click', close);
+    confirmBtn?.addEventListener('click', () => {
       close();
       this.events.onRestoreOriginal();
     });
