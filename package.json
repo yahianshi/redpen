@@ -1,0 +1,20 @@
+{
+  "name": "classroom-stylus-pdf-grading",
+  "version": "1.0.0",
+  "description": "In-page PDF stylus grading canvas for Google Classroom with erasable strokes, debounced autosave flattening to Google Drive, and restore original.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "npx tsx test/run_tests.ts"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.0.379"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.280",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "manifest_version": 3,
+  "name": "Classroom Stylus - PDF Grading Canvas",
+  "version": "1.0.0",
+  "description": "In-page PDF stylus grading canvas for Google Classroom with live erasable session strokes, Google Drive autosave flattening, and one-click restore original.",
+  "permissions": [
+    "identity",
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://classroom.google.com/*",
+    "https://www.googleapis.com/*",
+    "https://accounts.google.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://classroom.google.com/*"
+      ],
+      "js": [
+        "content_script.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "pdf.worker.min.mjs",
+        "icons/*"
+      ],
+      "matches": [
+        "https://classroom.google.com/*"
+      ]
+    }
+  ]
+}

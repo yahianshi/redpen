@@ -1,0 +1,519 @@
+/* Google Classroom Stylus Grading Canvas Stylesheet */
+
+/* Injected Pill Button into Classroom's Header Bar (#202124) */
+.classroom-stylus-inject-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #2d2e30;
+  color: #e8eaed;
+  border: 1px solid #5f6368;
+  border-radius: 9999px;
+  height: 36px;
+  padding: 0 16px;
+  margin-left: 8px;
+  font-family: 'Google Sans', Roboto, system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+  z-index: 999;
+}
+
+.classroom-stylus-inject-pill-btn:hover {
+  background-color: #3c4043;
+  border-color: #8ab4f8;
+}
+
+.classroom-stylus-inject-pill-btn.active {
+  background-color: rgba(138, 180, 248, 0.15);
+  border-color: #8ab4f8;
+  color: #8ab4f8;
+}
+
+.classroom-stylus-inject-pill-btn .cs-btn-icon {
+  font-size: 15px;
+}
+
+/* Header Toolbar Bar */
+.classroom-stylus-toolbar-bar {
+  width: 100%;
+  background-color: #202124;
+  border-bottom: 1px solid #3c4043;
+  padding: 8px 16px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Google Sans', Roboto, system-ui, -apple-system, sans-serif;
+  z-index: 1000;
+}
+
+.cs-toolbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1400px;
+  gap: 12px;
+}
+
+.cs-tool-group,
+.cs-action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cs-divider {
+  width: 1px;
+  height: 24px;
+  background-color: #3c4043;
+  margin: 0 4px;
+}
+
+/* Pill buttons inside Toolbar */
+.cs-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #2d2e30;
+  color: #e8eaed;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.cs-pill-btn:hover {
+  background-color: #3c4043;
+}
+
+.cs-pill-btn.active {
+  background-color: rgba(138, 180, 248, 0.2);
+  border-color: #8ab4f8;
+  color: #8ab4f8;
+}
+
+.cs-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background-color: #2d2e30;
+  color: #e8eaed;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cs-icon-btn:hover:not(:disabled) {
+  background-color: #3c4043;
+}
+
+.cs-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.cs-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.cs-icon-sm {
+  width: 14px;
+  height: 14px;
+}
+
+.cs-icon-lg {
+  width: 36px;
+  height: 36px;
+}
+
+/* Color dots and thickness controls */
+.cs-pen-options,
+.cs-highlighter-options {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #171717;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  border: 1px solid #3c4043;
+}
+
+.cs-color-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cs-color-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s ease, border-color 0.1s ease;
+}
+
+.cs-color-dot:hover {
+  transform: scale(1.15);
+}
+
+.cs-color-dot.selected {
+  border-color: #ffffff;
+  transform: scale(1.2);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+}
+
+.cs-thickness-pills {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.cs-thick-btn {
+  background: none;
+  border: none;
+  color: #9aa0a6;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.1s ease, background-color 0.1s ease;
+}
+
+.cs-thick-btn:hover {
+  color: #e8eaed;
+  background-color: #2d2e30;
+}
+
+.cs-thick-btn.selected {
+  color: #8ab4f8;
+  font-weight: 700;
+  background-color: rgba(138, 180, 248, 0.15);
+}
+
+/* Sync Status Pill */
+.cs-sync-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  user-select: none;
+}
+
+.cs-sync-pill.cs-status-saved {
+  color: #81c995;
+  background-color: rgba(129, 201, 149, 0.12);
+}
+
+.cs-sync-pill.cs-status-syncing {
+  color: #fdd663;
+  background-color: rgba(253, 214, 99, 0.12);
+}
+
+.cs-sync-pill.cs-status-unsaved {
+  color: #9aa0a6;
+  background-color: rgba(154, 160, 166, 0.12);
+}
+
+.cs-sync-pill.cs-status-error {
+  color: #f28b82;
+  background-color: rgba(242, 139, 130, 0.15);
+  cursor: help;
+}
+
+.cs-unsaved-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #9aa0a6;
+}
+
+.cs-spinner-sm {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(253, 214, 99, 0.3);
+  border-top-color: #fdd663;
+  border-radius: 50%;
+  animation: cs-spin 0.75s linear infinite;
+}
+
+@keyframes cs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Center Canvas Viewer Root */
+.classroom-stylus-viewer-root {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #171717;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 50;
+}
+
+.cs-scroll-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: 32px 16px 80px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.cs-pages-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.cs-page-card {
+  position: relative;
+  background-color: #ffffff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  user-select: none;
+}
+
+.cs-pdf-canvas {
+  display: block;
+}
+
+.cs-ink-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  touch-action: none;
+  cursor: crosshair;
+  pointer-events: auto;
+}
+
+/* Floating Bottom Zoom Pill */
+.cs-bottom-zoom-pill {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #202124;
+  border: 1px solid #3c4043;
+  border-radius: 9999px;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  font-family: 'Google Sans', Roboto, system-ui, sans-serif;
+  color: #e8eaed;
+}
+
+.cs-zoom-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cs-zoom-sep {
+  width: 1px;
+  height: 18px;
+  background-color: #3c4043;
+}
+
+.cs-zoom-btn {
+  background: none;
+  border: none;
+  color: #e8eaed;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+}
+
+.cs-zoom-btn:hover {
+  background-color: #3c4043;
+}
+
+.cs-page-indicator {
+  font-size: 12px;
+  color: #9aa0a6;
+}
+
+.cs-page-indicator b {
+  color: #e8eaed;
+}
+
+/* Loader & Error UI */
+.cs-viewer-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  color: #9aa0a6;
+}
+
+.cs-spinner-lg {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(138, 180, 248, 0.2);
+  border-top-color: #8ab4f8;
+  border-radius: 50%;
+  animation: cs-spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+.cs-loader-text {
+  font-size: 14px;
+}
+
+.cs-error-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 24px;
+  text-align: center;
+  color: #e8eaed;
+}
+
+.cs-error-title {
+  margin: 12px 0 6px 0;
+  font-size: 16px;
+  color: #f28b82;
+}
+
+.cs-error-msg {
+  font-size: 13px;
+  color: #9aa0a6;
+  max-width: 480px;
+}
+
+/* Modal Dialog */
+.cs-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  font-family: 'Google Sans', Roboto, system-ui, sans-serif;
+}
+
+.cs-modal-card {
+  background-color: #202124;
+  border: 1px solid #3c4043;
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 460px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  color: #e8eaed;
+}
+
+.cs-modal-title {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: #f28b82;
+}
+
+.cs-modal-body {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #bdc1c6;
+  margin: 0 0 24px 0;
+}
+
+.cs-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cs-modal-btn {
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.15s ease;
+}
+
+.cs-modal-cancel {
+  background-color: #2d2e30;
+  color: #e8eaed;
+}
+
+.cs-modal-cancel:hover {
+  background-color: #3c4043;
+}
+
+.cs-modal-confirm {
+  background-color: #d93025;
+  color: #ffffff;
+}
+
+.cs-modal-confirm:hover {
+  background-color: #b3261e;
+}
+
+/* Floating Toasts */
+.cs-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-family: 'Google Sans', Roboto, system-ui, sans-serif;
+  font-size: 14px;
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  z-index: 999999;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.cs-toast-info {
+  background-color: #202124;
+  border: 1px solid #3c4043;
+}
+
+.cs-toast-error {
+  background-color: #d93025;
+}
+
+.cs-toast.fade-out {
+  opacity: 0;
+  transform: translateY(10px);
+}

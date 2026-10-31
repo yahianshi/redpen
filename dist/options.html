@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Classroom Stylus - Options & Setup Guide</title>
+  <script type="module" crossorigin src="./options.js"></script>
+  <link rel="modulepreload" crossorigin href="./chunks/storage-C6fduYwJ.js">
+  <link rel="stylesheet" crossorigin href="./options.css">
+</head>
+<body>
+  <div class="options-container">
+    <header class="options-header">
+      <div class="header-content">
+        <span class="logo-icon">✏️</span>
+        <div>
+          <h1>Classroom Stylus - PDF Grading Canvas</h1>
+          <p>Production Manifest V3 extension for Brave & Chrome with Google Drive syncing</p>
+        </div>
+      </div>
+      <div id="authStatusBadge" class="badge badge-disconnected">Checking Auth...</div>
+    </header>
+
+    <main class="options-grid">
+      <!-- Left Column: Settings Form -->
+      <section class="card settings-card">
+        <h2>Extension Configuration</h2>
+
+        <div class="form-section">
+          <h3>1. Google Cloud OAuth Setup (Brave & Chrome)</h3>
+          <p class="description">
+            To allow in-page background PDF flattening and restoring directly to Google Drive, authorize this extension via Google Cloud Console.
+          </p>
+
+          <div class="field-group">
+            <label for="redirectUriInput">Extension Redirect URI:</label>
+            <div class="input-with-button">
+              <input type="text" id="redirectUriInput" readonly class="code-input" />
+              <button type="button" id="copyUriBtn" class="btn btn-secondary">Copy URI</button>
+            </div>
+            <span class="hint">Add this exact URL to your OAuth Client ID's <strong>Authorized redirect URIs</strong> in Google Cloud Console.</span>
+          </div>
+
+          <div class="field-group">
+            <label for="clientIdInput">Google Cloud Client ID:</label>
+            <input
+              type="text"
+              id="clientIdInput"
+              placeholder="e.g., 123456789-abcdefghijk.apps.googleusercontent.com"
+              class="text-input"
+            />
+            <span class="hint">Create a free Web Application or Chrome App OAuth Client ID.</span>
+          </div>
+
+          <div class="actions-row">
+            <button type="button" id="connectAuthBtn" class="btn btn-primary">Save & Connect with Google</button>
+            <button type="button" id="disconnectAuthBtn" class="btn btn-danger" style="display: none;">Sign Out</button>
+          </div>
+          <div id="authMessage" class="status-box"></div>
+        </div>
+
+        <div class="form-section">
+          <h3>2. Teacher Handwriting & Stylus Settings</h3>
+
+          <div class="field-group">
+            <label>Default Pen Color:</label>
+            <div class="color-picker-row" id="colorPicker">
+              <button type="button" class="color-dot" data-color="#ef4444" style="background:#ef4444;" title="Red (Teacher default)"></button>
+              <button type="button" class="color-dot" data-color="#22c55e" style="background:#22c55e;" title="Green (Correct)"></button>
+              <button type="button" class="color-dot" data-color="#3b82f6" style="background:#3b82f6;" title="Blue"></button>
+              <button type="button" class="color-dot" data-color="#000000" style="background:#000000;" title="Black"></button>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label for="penThicknessSelect">Default Pen Thickness:</label>
+            <select id="penThicknessSelect" class="select-input">
+              <option value="2">Fine (2px)</option>
+              <option value="3" selected>Medium (3px)</option>
+              <option value="4">Thick (4px)</option>
+              <option value="8">Broad (8px)</option>
+            </select>
+          </div>
+
+          <div class="field-group checkbox-field">
+            <input type="checkbox" id="penOnlyCheckbox" checked />
+            <div>
+              <label for="penOnlyCheckbox" class="checkbox-label">Strict Palm Rejection (Stylus/Pen Only)</label>
+              <p class="hint">When enabled, the canvas ignores hand and finger touches while drawing, preventing accidental palm marks.</p>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label for="autosaveDelayInput">Autosave Flattening Debounce (ms):</label>
+            <input type="number" id="autosaveDelayInput" min="1000" max="10000" step="500" value="2500" class="text-input" />
+            <span class="hint">Time to wait after teacher stops writing before flattening strokes and patching to Google Drive (default 2500ms).</span>
+          </div>
+
+          <div class="actions-row">
+            <button type="button" id="savePrefsBtn" class="btn btn-secondary">Save Preferences</button>
+            <span id="prefsSaveMsg" class="save-indicator"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Setup Walkthrough -->
+      <section class="card guide-card">
+        <h2>Quick Setup Guide (1 Minute)</h2>
+
+        <div class="guide-step">
+          <div class="step-num">1</div>
+          <div>
+            <h4>Create Google Cloud Project</h4>
+            <p>Visit <a href="https://console.cloud.google.com/apis/dashboard" target="_blank">Google Cloud Console</a> and create or select a project.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="step-num">2</div>
+          <div>
+            <h4>Enable Required Google APIs</h4>
+            <p>In <strong>APIs & Services &gt; Library</strong>, enable:</p>
+            <ul>
+              <li><code>Google Drive API</code></li>
+              <li><code>Google Classroom API</code></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="step-num">3</div>
+          <div>
+            <h4>Configure OAuth Consent & Credentials</h4>
+            <p>Under <strong>APIs & Services &gt; Credentials</strong>:</p>
+            <ol>
+              <li>Click <strong>Create Credentials &gt; OAuth client ID</strong>.</li>
+              <li>Select <strong>Web application</strong>.</li>
+              <li>Under <strong>Authorized redirect URIs</strong>, paste the Redirect URI copied from the left box.</li>
+              <li>Click <strong>Create</strong>, copy the generated <strong>Client ID</strong>, and paste it into the field on the left.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="step-num">4</div>
+          <div>
+            <h4>Start Grading in Google Classroom</h4>
+            <p>
+              Navigate to any Google Classroom assignment submission. You will see the native <strong>✏️ Grade with Stylus</strong> button in the dark header bar.
+            </p>
+          </div>
+        </div>
+
+        <div class="brave-callout">
+          <h4>🦁 Brave Browser Compatibility Note</h4>
+          <p>
+            Brave blocks Chrome's proprietary profile synchronization used by standard extensions. This extension uses <code>chrome.identity.launchWebAuthFlow</code>, which works natively and securely in Brave without requiring Chrome profile sync!
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+</body>
+</html>
