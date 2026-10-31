@@ -147,6 +147,18 @@ class ClassroomStylusApp {
   }
 
   private async handleSubmissionChanged(ctx: ClassroomContext) {
+    // If it's the exact same student submission and file, do not teardown active canvas!
+    if (
+      this.currentContext &&
+      this.currentContext.courseId === ctx.courseId &&
+      this.currentContext.courseWorkId === ctx.courseWorkId &&
+      this.currentContext.submissionId === ctx.submissionId &&
+      (!ctx.fileId || !this.currentContext.fileId || this.currentContext.fileId === ctx.fileId)
+    ) {
+      this.currentContext = ctx;
+      return;
+    }
+
     if (this.isCanvasActive && this.sessionData?.isDirty) {
       await this.saveFlattenedPdf(true);
     }
@@ -931,20 +943,26 @@ class ClassroomStylusApp {
       let cleanBytes: ArrayBuffer = this.cleanBasePdfBytes;
 
       if (this.originalRevisionId) {
-        const revResp: ExtensionResponse<string> = await this.sendMessage({
-          type: 'DRIVE_DOWNLOAD_REVISION',
-          fileId,
-          revisionId: this.originalRevisionId,
-        });
-        if (revResp.success && revResp.data) {
-          cleanBytes = this.base64ToArrayBuffer(revResp.data);
-          this.cleanBasePdfBytes = cleanBytes;
+        try {
+          const revResp: ExtensionResponse<string> = await this.sendMessage({
+            type: 'DRIVE_DOWNLOAD_REVISION',
+            fileId,
+            revisionId: this.originalRevisionId,
+          });
+          if (revResp.success && revResp.data) {
+            cleanBytes = this.base64ToArrayBuffer(revResp.data);
+            this.cleanBasePdfBytes = cleanBytes;
+          }
+        } catch (revErr) {
+          console.warn('[RedPen] Revision download fallback to cached cleanBasePdfBytes:', revErr);
         }
       }
 
-      this.sessionData.pageStrokes = {};
-      this.sessionData.isDirty = false;
-      this.sessionData.lastSavedTime = Date.now();
+      if (this.sessionData) {
+        this.sessionData.pageStrokes = {};
+        this.sessionData.isDirty = false;
+        this.sessionData.lastSavedTime = Date.now();
+      }
       await storage.clearSessionStrokes(fileId);
 
       const base64Data = this.arrayBufferToBase64(cleanBytes);
@@ -958,7 +976,9 @@ class ClassroomStylusApp {
         throw new Error(resp.error || 'Failed to restore clean PDF');
       }
 
-      this.canvasViewer.setStrokes({});
+      if (this.canvasViewer) {
+        await this.canvasViewer.loadPdf(cleanBytes, {});
+      }
       this.toolbar?.setSyncStatus('saved');
       this.showToast('Restored to student’s unannotated original upload.', 'info');
     } catch (err: any) {

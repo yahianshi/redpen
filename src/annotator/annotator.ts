@@ -81,38 +81,50 @@ document.addEventListener('DOMContentLoaded', async () => {
         storage.updateSettings({ penOnlyMode: penOnly });
       },
       onRestoreOriginal: async () => {
-      if (!sessionData || !cleanBasePdfBytes) return;
-      toolbar.setSyncStatus('syncing');
-      try {
-        let cleanBytes = cleanBasePdfBytes;
-        if (originalRevisionId) {
-          const revResp: ExtensionResponse<string> = await sendMessage({
-            type: 'DRIVE_DOWNLOAD_REVISION',
-            fileId,
-            revisionId: originalRevisionId,
-          });
-          if (revResp.success && revResp.data) {
-            cleanBytes = base64ToArrayBuffer(revResp.data);
-            cleanBasePdfBytes = cleanBytes;
+        if (!sessionData || !cleanBasePdfBytes) return;
+        toolbar.setSyncStatus('syncing');
+        try {
+          let cleanBytes = cleanBasePdfBytes;
+          if (originalRevisionId) {
+            try {
+              const revResp: ExtensionResponse<string> = await sendMessage({
+                type: 'DRIVE_DOWNLOAD_REVISION',
+                fileId,
+                revisionId: originalRevisionId,
+              });
+              if (revResp.success && revResp.data) {
+                cleanBytes = base64ToArrayBuffer(revResp.data);
+                cleanBasePdfBytes = cleanBytes;
+              }
+            } catch (revErr) {
+              console.warn('[RedPen] Revision download fallback to cached cleanBasePdfBytes:', revErr);
+            }
           }
+
+          if (sessionData) {
+            sessionData.pageStrokes = {};
+            sessionData.isDirty = false;
+            sessionData.lastSavedTime = Date.now();
+          }
+          await storage.clearSessionStrokes(fileId);
+
+          const base64Data = arrayBufferToBase64(cleanBytes);
+          const uploadResp: ExtensionResponse<any> = await sendMessage({
+            type: 'DRIVE_UPLOAD_FILE',
+            fileId,
+            pdfBase64: base64Data,
+          });
+
+          if (!uploadResp.success) {
+            throw new Error(uploadResp.error || 'Failed to upload clean PDF');
+          }
+
+          await canvasViewer.loadPdf(cleanBytes, {});
+          toolbar.setSyncStatus('saved');
+        } catch (err: any) {
+          toolbar.setSyncStatus('error', err.message);
         }
-        sessionData.pageStrokes = {};
-        sessionData.isDirty = false;
-        await storage.clearSessionStrokes(fileId);
-
-        const base64Data = arrayBufferToBase64(cleanBytes);
-        await sendMessage({
-          type: 'DRIVE_UPLOAD_FILE',
-          fileId,
-          pdfBase64: base64Data,
-        });
-
-        canvasViewer.setStrokes({});
-        toolbar.setSyncStatus('saved');
-      } catch (err: any) {
-        toolbar.setSyncStatus('error', err.message);
-      }
-    },
+      },
     onOpenDedicatedTab: () => {
       // Already in dedicated tab
     },

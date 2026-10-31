@@ -123,6 +123,15 @@ export class ClassroomDetector {
 
     if (!fileId && !parsed.courseId) return;
 
+    if (this.currentContext) {
+      if (fileName && !this.currentContext.fileName) {
+        this.currentContext.fileName = fileName;
+      }
+      if (fileId && !this.currentContext.fileId) {
+        this.currentContext.fileId = fileId;
+      }
+    }
+
     const newContext: ClassroomContext = {
       ...parsed,
       fileId: fileId || this.currentContext?.fileId,
@@ -131,10 +140,9 @@ export class ClassroomDetector {
 
     const isDifferent =
       !this.currentContext ||
-      this.currentContext.fileId !== newContext.fileId ||
-      this.currentContext.submissionId !== newContext.submissionId ||
-      this.currentContext.fileName !== newContext.fileName ||
-      urlChanged;
+      urlChanged ||
+      (Boolean(newContext.submissionId) && this.currentContext.submissionId !== newContext.submissionId) ||
+      (Boolean(newContext.fileId) && Boolean(this.currentContext.fileId) && this.currentContext.fileId !== newContext.fileId);
 
     if (isDifferent) {
       const prevContext = this.currentContext;
