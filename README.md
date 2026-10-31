@@ -66,32 +66,43 @@ RedPen follows a minimalist dark interface (`#13181c`) with signature red accent
 
 ---
 
-## 🛠️ Installation & Setup
+## 📥 Quick Install (No Coding or Tech Skills Needed!)
 
-### 1. Build from Source
+You don't need Node.js, git, or any programming knowledge to use RedPen.
+
+### Step 1: Download the Extension
+1. Go to the **[Latest Releases](https://github.com/yahianshi/redpen/releases)** page on GitHub.
+2. Under **Assets**, click **`redpen-classroom-v1.0.0.zip`** to download it.
+3. Unzip / Extract the downloaded folder on your computer (e.g., right-click → *Extract All*). Keep this folder in a safe place.
+
+### Step 2: Install into Brave, Chrome, or Edge (30 seconds)
+1. Open your browser and go to your extensions manager:
+   - In **Brave**: type `brave://extensions` into your address bar
+   - In **Chrome**: type `chrome://extensions` into your address bar
+   - In **Edge**: type `edge://extensions` into your address bar
+2. In the top right corner, turn ON the switch that says **Developer mode**.
+3. Click the **Load unpacked** button in the top left.
+4. Select the extracted folder containing the extension files.
+5. That's it! RedPen is now installed in your browser. Pin it to your toolbar by clicking the puzzle piece 🧩 icon.
+
+---
+
+## 🛠️ Advanced: Build from Source (For Developers)
+
+If you prefer building from the TypeScript source code:
 ```bash
 # Clone the repository
 git clone https://github.com/yahianshi/redpen.git
 cd redpen
 
-# Install dependencies
+# Install dependencies and run tests
 npm install
-
-# Run automated tests (32 tests)
 npm test
 
-# Build production bundle
+# Build production bundle into /dist
 npm run build
 ```
-The compiled extension is output to the `./dist` folder.
-
-### 2. Load into Brave or Chrome
-1. Open your browser and navigate to:
-   - **Brave**: `brave://extensions`
-   - **Chrome**: `chrome://extensions`
-2. Enable **Developer mode** (toggle in the upper right corner).
-3. Click **Load unpacked**.
-4. Select the `dist/` directory inside this repository.
+Once built, load the `dist/` directory via **Load unpacked** in your browser's extensions page.
 
 ---
 
