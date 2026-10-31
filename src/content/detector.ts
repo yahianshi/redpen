@@ -140,8 +140,9 @@ export class ClassroomDetector {
 
     const isDifferent =
       !this.currentContext ||
-      urlChanged ||
       (Boolean(newContext.submissionId) && this.currentContext.submissionId !== newContext.submissionId) ||
+      (Boolean(newContext.courseWorkId) && this.currentContext.courseWorkId !== newContext.courseWorkId) ||
+      (Boolean(newContext.courseId) && this.currentContext.courseId !== newContext.courseId) ||
       (Boolean(newContext.fileId) && Boolean(this.currentContext.fileId) && this.currentContext.fileId !== newContext.fileId);
 
     if (isDifferent) {

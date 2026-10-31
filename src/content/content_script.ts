@@ -125,7 +125,7 @@ class ClassroomStylusApp {
       }
     });
 
-    // 500ms continuous poller to ensure buttons appear as soon as DOM renders and persist through Classroom SPA changes
+    // Continuous poller (400ms) to ensure buttons and canvas persist through Classroom SPA changes
     this.buttonPollerTimer = setInterval(() => {
       if (!isExtensionValid()) {
         if (this.buttonPollerTimer) {
@@ -135,7 +135,17 @@ class ClassroomStylusApp {
         return;
       }
       this.updateButtonsState();
-    }, 500);
+    }, 400);
+
+    // Instant DOM observer for Google Classroom's view re-renders (e.g. entering grades, comments, status changes)
+    const domObserver = new MutationObserver(() => {
+      if (!isExtensionValid()) {
+        domObserver.disconnect();
+        return;
+      }
+      this.updateButtonsState();
+    });
+    domObserver.observe(document.body, { childList: true, subtree: true });
 
     // Initial check
     this.updateButtonsState();
@@ -226,8 +236,11 @@ class ClassroomStylusApp {
   }
 
   private updateButtonsState() {
-    // If canvas mode is active, sync active labels
+    // If canvas mode is active, ensure all components stay mounted
     if (this.isCanvasActive) {
+      if (!this.sidebarButton || !document.body.contains(this.sidebarButton)) {
+        this.injectRightSidebarButton();
+      }
       if (this.sidebarButton) {
         if (!this.sidebarButton.classList.contains('active')) this.sidebarButton.classList.add('active');
         const textEl = this.sidebarButton.querySelector('.cs-btn-text');
@@ -235,6 +248,8 @@ class ClassroomStylusApp {
           textEl.textContent = '✓ Grading Active (Click to Exit)';
         }
       }
+
+      this.ensureCanvasOverlayMounted();
       return;
     }
 
@@ -245,6 +260,64 @@ class ClassroomStylusApp {
     }
 
     this.injectRightSidebarButton();
+  }
+
+  private ensureCanvasOverlayMounted() {
+    if (!this.isCanvasActive || !this.overlayContainer) return;
+
+    // Check if overlayContainer is in DOM and visible
+    const isAttached = document.body.contains(this.overlayContainer) && this.overlayContainer.clientHeight > 100;
+    if (isAttached) {
+      return;
+    }
+
+    // Locate the active center preview host in Google Classroom
+    const iframes = Array.from(document.querySelectorAll<HTMLIFrameElement>('iframe'));
+    const driveIframe = iframes.find((f) => {
+      const src = f.src || f.getAttribute('data-src') || '';
+      return src.includes('drive.google.com') || src.includes('docs.google.com');
+    }) || iframes[0];
+
+    let previewHost: HTMLElement | null = driveIframe?.parentElement || null;
+    while (
+      previewHost &&
+      previewHost.clientHeight < 250 &&
+      previewHost.parentElement &&
+      previewHost.parentElement !== document.body
+    ) {
+      previewHost = previewHost.parentElement;
+    }
+
+    if (!previewHost || previewHost === document.body) {
+      previewHost = document.querySelector<HTMLElement>('main, [role="main"]') || document.body;
+    }
+
+    // Hide any newly spawned Google Drive preview iframes
+    iframes.forEach((iframe) => {
+      iframe.style.setProperty('display', 'none', 'important');
+      iframe.setAttribute('data-cs-hidden', 'true');
+    });
+
+    if (previewHost && previewHost !== document.body) {
+      previewHost.classList.add('classroom-stylus-container-active');
+      previewHost.style.setProperty('position', 'relative', 'important');
+      previewHost.style.setProperty('width', '100%', 'important');
+      previewHost.style.setProperty('height', '100%', 'important');
+      previewHost.style.setProperty('max-height', '100%', 'important');
+      previewHost.style.setProperty('min-height', '0', 'important');
+      previewHost.style.setProperty('background-color', '#13181c', 'important');
+      previewHost.style.setProperty('display', 'flex', 'important');
+      previewHost.style.setProperty('flex-direction', 'column', 'important');
+      previewHost.style.setProperty('overflow', 'hidden', 'important');
+
+      if (this.overlayContainer.parentElement !== previewHost) {
+        previewHost.appendChild(this.overlayContainer);
+      }
+    } else {
+      if (!document.body.contains(this.overlayContainer)) {
+        document.body.appendChild(this.overlayContainer);
+      }
+    }
   }
 
   private findSubmissionPdfChip(): HTMLElement | null {
