@@ -3,26 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Classroom Stylus Setup</title>
+  <title>RedPen Setup</title>
   <script type="module" crossorigin src="./popup.js"></script>
-  <link rel="modulepreload" crossorigin href="./chunks/storage-C6fduYwJ.js">
+  <link rel="modulepreload" crossorigin href="./chunks/storage-DTdqLIKA.js">
   <link rel="stylesheet" crossorigin href="./popup.css">
 </head>
 <body>
   <div class="popup-container">
     <header class="popup-header">
       <div class="popup-title-row">
-        <span class="popup-icon">✏️</span>
+        <img src="icons/icon-32.png" class="popup-logo" alt="RedPen" width="28" height="28" />
         <div>
-          <h1 class="popup-title">Classroom Stylus</h1>
-          <p class="popup-subtitle">In-Page PDF Grading for Google Classroom</p>
+          <h1 class="popup-title">RedPen</h1>
+          <p class="popup-subtitle">Classroom PDF Grading</p>
         </div>
       </div>
       <span id="connectionBadge" class="badge badge-disconnected">Checking...</span>
     </header>
 
     <main class="popup-body">
-      <!-- Connected State Card (shown when authenticated) -->
+      <!-- 1. Connected Card (Shown when token is valid and active) -->
       <section id="connectedCard" class="card card-connected" style="display: none;">
         <div class="connected-hero">
           <div class="connected-icon-circle">✓</div>
@@ -33,22 +33,66 @@
           <a href="https://classroom.google.com" target="_blank" class="btn btn-primary btn-full">
             Open Google Classroom ↗
           </a>
+          <button type="button" id="reauthConnectedBtn" class="btn btn-secondary btn-full">
+            🔄 Re-authenticate / Switch Account
+          </button>
+          <button type="button" id="editSetupFromConnected" class="btn-text-link">
+            ⚙️ Edit Google Cloud Client ID
+          </button>
           <button type="button" id="signOutBtn" class="btn btn-outline btn-full">
             Disconnect Account
           </button>
         </div>
       </section>
 
-      <!-- Step-by-Step Setup Wizard (shown when not connected) -->
-      <div id="setupWizard" class="setup-wizard">
-        <!-- Step 1 -->
-        <section class="step-card">
+      <!-- 2. Re-Authenticate Card (Shown when Client ID is already configured but token is expired/missing) -->
+      <section id="reauthCard" class="card card-reauth" style="display: none;">
+        <div class="reauth-hero">
+          <div class="reauth-icon-circle">🔑</div>
+          <h2 class="connected-title">Sign In to Google Drive</h2>
+          <p class="connected-desc">
+            Your Google Cloud Client ID is already saved. Click below to sign in or renew your session.
+          </p>
+        </div>
+        <div class="btn-row-stacked">
+          <button type="button" id="quickSignInBtn" class="btn btn-primary btn-full">
+            🚀 Sign In with Google
+          </button>
+          <div id="reauthStatusMessage" class="status-msg"></div>
+          <button type="button" id="openSetupFromReauth" class="btn-text-link">
+            ⚙️ Edit Client ID / Re-run Setup
+          </button>
+        </div>
+      </section>
+
+      <!-- 3. Paginated Step-by-Step Setup Wizard (Shown for first-time setup or editing) -->
+      <div id="setupWizard" class="setup-wizard" style="display: none;">
+        <!-- Stepper Progress Header -->
+        <div class="stepper-header">
+          <div class="stepper-node active" data-step-indicator="1">
+            <span class="stepper-circle">1</span>
+            <span class="stepper-label">Redirect URI</span>
+          </div>
+          <div class="stepper-line" data-line="1"></div>
+          <div class="stepper-node" data-step-indicator="2">
+            <span class="stepper-circle">2</span>
+            <span class="stepper-label">Client ID</span>
+          </div>
+          <div class="stepper-line" data-line="2"></div>
+          <div class="stepper-node" data-step-indicator="3">
+            <span class="stepper-circle">3</span>
+            <span class="stepper-label">Authorize</span>
+          </div>
+        </div>
+
+        <!-- Wizard Page 1: Redirect URI -->
+        <section id="wizardPage1" class="step-card wizard-page active">
           <div class="step-badge-row">
-            <span class="step-num-pill">Step 1</span>
+            <span class="step-num-pill">Page 1 of 3</span>
             <span class="step-heading">Copy Redirect URI</span>
           </div>
           <p class="step-desc">
-            Your browser OAuth redirect URI:
+            Your unique browser OAuth redirect URI:
           </p>
           <div class="copy-input-row">
             <input type="text" id="redirectUri" readonly class="form-input readonly-input" />
@@ -60,18 +104,23 @@
             </a>
           </div>
           <p class="form-hint">
-            In Google Cloud, click <strong>Create Credentials → OAuth client ID → Web application</strong>, then paste the URI above into <em>"Authorized redirect URIs"</em>.
+            In Google Cloud Console, click <strong>Create Credentials → OAuth client ID → Web application</strong>, then paste the URI above into <em>"Authorized redirect URIs"</em>.
           </p>
+          <div class="wizard-nav-row">
+            <button type="button" id="nextToPage2Btn" class="btn btn-primary btn-full">
+              Next: Enter Client ID →
+            </button>
+          </div>
         </section>
 
-        <!-- Step 2 -->
-        <section class="step-card">
+        <!-- Wizard Page 2: Client ID -->
+        <section id="wizardPage2" class="step-card wizard-page" style="display: none;">
           <div class="step-badge-row">
-            <span class="step-num-pill">Step 2</span>
+            <span class="step-num-pill">Page 2 of 3</span>
             <span class="step-heading">Paste Client ID</span>
           </div>
           <p class="step-desc">
-            Paste your Google Cloud OAuth Client ID:
+            Paste your Google Cloud OAuth 2.0 Client ID:
           </p>
           <div class="form-group">
             <input
@@ -81,12 +130,23 @@
               class="form-input"
             />
           </div>
+          <p class="form-hint">
+            Found on your Google Cloud Console Credentials page under <em>OAuth 2.0 Client IDs</em>.
+          </p>
+          <div class="wizard-nav-row btn-row">
+            <button type="button" id="backToPage1Btn" class="btn btn-secondary">
+              ← Back
+            </button>
+            <button type="button" id="nextToPage3Btn" class="btn btn-primary">
+              Next: Authorize →
+            </button>
+          </div>
         </section>
 
-        <!-- Step 3 -->
-        <section class="step-card">
+        <!-- Wizard Page 3: Authorize & Connect -->
+        <section id="wizardPage3" class="step-card wizard-page" style="display: none;">
           <div class="step-badge-row">
-            <span class="step-num-pill">Step 3</span>
+            <span class="step-num-pill">Page 3 of 3</span>
             <span class="step-heading">Authorize & Connect</span>
           </div>
           <p class="step-desc">
@@ -96,17 +156,20 @@
             🚀 Connect with Google
           </button>
           <div id="authStatusMessage" class="status-msg"></div>
+          <div class="wizard-nav-row btn-row">
+            <button type="button" id="backToPage2Btn" class="btn btn-secondary btn-full">
+              ← Back
+            </button>
+          </div>
         </section>
       </div>
     </main>
 
     <footer class="popup-footer">
+      <span class="version-text">v1.0.0</span>
       <a href="https://classroom.google.com" target="_blank" class="footer-link">Google Classroom ↗</a>
-      <span class="version-text">v1.1.0 • Brave & Chrome</span>
     </footer>
   </div>
 
-</body>
-</html>
 </body>
 </html>

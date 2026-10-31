@@ -133,6 +133,7 @@ export class ClassroomDetector {
       !this.currentContext ||
       this.currentContext.fileId !== newContext.fileId ||
       this.currentContext.submissionId !== newContext.submissionId ||
+      this.currentContext.fileName !== newContext.fileName ||
       urlChanged;
 
     if (isDifferent) {

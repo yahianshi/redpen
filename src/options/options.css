@@ -1,13 +1,13 @@
 :root {
-  --bg-primary: #171717;
-  --bg-card: #202124;
-  --bg-input: #2d2e30;
-  --border-color: #3c4043;
+  --bg-primary: #13181c;
+  --bg-card: #1a2126;
+  --bg-input: #13181c;
+  --border-color: #2c3740;
   --text-primary: #e8eaed;
   --text-secondary: #9aa0a6;
-  --accent-blue: #8ab4f8;
+  --accent-blue: #f0393c;
   --accent-green: #81c995;
-  --accent-red: #f28b82;
+  --accent-red: #f0393c;
   --accent-yellow: #fdd663;
 }
 
@@ -238,13 +238,13 @@ body {
 }
 
 .btn-primary {
-  background-color: var(--accent-blue);
-  color: #202124;
+  background-color: var(--accent-red);
+  color: #ffffff;
   font-weight: 600;
 }
 
 .btn-primary:hover {
-  background-color: #aecbfa;
+  background-color: #d62b2e;
 }
 
 .btn-secondary {

@@ -6,6 +6,14 @@ import { PdfFlattener } from '../services/flattener';
 import { storage } from '../services/storage';
 import { ClassroomContext, ExtensionMessage, ExtensionResponse, Stroke, SessionData } from '../types';
 
+function isExtensionValid(): boolean {
+  try {
+    return Boolean(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
+  } catch {
+    return false;
+  }
+}
+
 // ===================================================================
 // IFRAME HELPER (runs inside drive.google.com embedded preview iframe)
 // ===================================================================
@@ -39,7 +47,7 @@ function initIframeHelper() {
       pillBtn.className = 'classroom-stylus-inject-pill-btn classroom-stylus-iframe-pill-btn';
       pillBtn.innerHTML = `
         <span class="cs-btn-icon">✏️</span>
-        <span class="cs-btn-text">Grade with Stylus</span>
+        <span class="cs-btn-text">Grade with RedPen</span>
       `;
       pillBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -73,8 +81,8 @@ class ClassroomStylusApp {
 
   private isCanvasActive: boolean = false;
   private overlayContainer: HTMLElement | null = null;
-  private topBarButton: HTMLButtonElement | null = null;
   private sidebarButton: HTMLButtonElement | null = null;
+  private buttonPollerTimer: any = null;
   private toolbar: GradingToolbar | null = null;
   private canvasViewer: CanvasViewer | null = null;
   private stylusEngine: StylusEngine | null = null;
@@ -92,7 +100,7 @@ class ClassroomStylusApp {
   }
 
   private init() {
-    console.log('[ClassroomStylus] Main app initializing on Google Classroom...');
+    console.log('[RedPen] Main app initializing on Google Classroom...');
 
     this.detector = new ClassroomDetector({
       onSubmissionDetected: (ctx) => this.handleSubmissionDetected(ctx),
@@ -117,12 +125,25 @@ class ClassroomStylusApp {
       }
     });
 
-    this.injectButtons();
+    // 500ms continuous poller to ensure buttons appear as soon as DOM renders and persist through Classroom SPA changes
+    this.buttonPollerTimer = setInterval(() => {
+      if (!isExtensionValid()) {
+        if (this.buttonPollerTimer) {
+          clearInterval(this.buttonPollerTimer);
+          this.buttonPollerTimer = null;
+        }
+        return;
+      }
+      this.updateButtonsState();
+    }, 500);
+
+    // Initial check
+    this.updateButtonsState();
   }
 
   private async handleSubmissionDetected(ctx: ClassroomContext) {
     this.currentContext = ctx;
-    this.injectButtons();
+    this.updateButtonsState();
   }
 
   private async handleSubmissionChanged(ctx: ClassroomContext) {
@@ -133,7 +154,7 @@ class ClassroomStylusApp {
     const wasActive = this.isCanvasActive;
     this.teardownCanvas();
     this.currentContext = ctx;
-    this.injectButtons();
+    this.updateButtonsState();
 
     if (wasActive) {
       setTimeout(() => this.enterCanvasMode(), 300);
@@ -157,29 +178,34 @@ class ClassroomStylusApp {
       return false;
     }
 
-    // Check if filename contains .pdf
+    // 1. Check if extracted filename contains .pdf
     const fileName = this.extractActiveFileName();
     if (fileName && /\.pdf\b/i.test(fileName)) {
       return true;
     }
 
-    // Check right sidebar chips
+    // 2. Check right sidebar chips for a .pdf attachment
     const chip = this.findSubmissionPdfChip();
     if (chip) {
       return true;
     }
 
-    // Check if any element mentions .pdf
-    const anyPdf = document.querySelector<HTMLElement>('[title*=".pdf" i], [aria-label*=".pdf" i]');
-    if (anyPdf) {
+    // 3. Check for any element explicitly containing .pdf in title or aria-label
+    const anyPdfAttr = document.querySelector<HTMLElement>('[title*=".pdf" i], [aria-label*=".pdf" i], [data-filename*=".pdf" i]');
+    if (anyPdfAttr) {
       return true;
     }
 
-    // Check if Drive preview iframe exists
+    // 4. Check if document body contains text matching a .pdf filename (e.g. "math quiz 4 .pdf")
+    if (document.body && /\b[a-zA-Z0-9_\- ]+?\s*\.pdf\b/i.test(document.body.innerText)) {
+      return true;
+    }
+
+    // 5. Check if preview iframe explicitly references a .pdf
     const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe');
     for (const f of iframes) {
-      const src = f.src || f.getAttribute('data-src') || '';
-      if (src.includes('drive.google.com') || src.includes('docs.google.com')) {
+      const src = (f.src || f.getAttribute('data-src') || '').toLowerCase();
+      if (src.includes('.pdf')) {
         return true;
       }
     }
@@ -187,57 +213,122 @@ class ClassroomStylusApp {
     return false;
   }
 
-  private injectButtons() {
-    if (!this.isEligiblePdfSubmission()) {
+  private updateButtonsState() {
+    // If canvas mode is active, sync active labels
+    if (this.isCanvasActive) {
+      if (this.sidebarButton) {
+        if (!this.sidebarButton.classList.contains('active')) this.sidebarButton.classList.add('active');
+        const textEl = this.sidebarButton.querySelector('.cs-btn-text');
+        if (textEl && textEl.textContent !== '✓ Grading Active (Click to Exit)') {
+          textEl.textContent = '✓ Grading Active (Click to Exit)';
+        }
+      }
+      return;
+    }
+
+    const isEligible = this.isEligiblePdfSubmission();
+    if (!isEligible) {
       this.removeButtons();
       return;
     }
 
     this.injectRightSidebarButton();
-    this.injectTopBarButton();
   }
 
   private findSubmissionPdfChip(): HTMLElement | null {
-    // 1. Look for elements in sidebar containing .pdf
-    const chips = document.querySelectorAll<HTMLElement>(
-      'aside [title*=".pdf" i], aside [aria-label*=".pdf" i], div[class*="sidebar" i] [title*=".pdf" i]'
+    // 1. Search for leaf elements containing .pdf on the right half of the screen
+    const thresholdX = typeof window !== 'undefined' ? window.innerWidth * 0.45 : 0;
+    const candidates = document.querySelectorAll<HTMLElement>(
+      'span, a, div, p, [role="button"], [role="link"], li'
     );
-    for (const c of chips) {
-      const chipContainer = c.closest<HTMLElement>('[role="button"], [role="link"], li, div[class*="chip" i], div[class*="item" i]') || c;
-      return chipContainer;
-    }
 
-    // 2. Search all elements in the right sidebar for .pdf text
-    const rightSections = document.querySelectorAll<HTMLElement>('aside, div[class*="sidebar" i], div');
-    for (const sec of rightSections) {
-      if (sec.clientWidth > 220 && sec.clientWidth < 450 && sec.textContent?.includes('Grade and feedback')) {
-        const leafElements = sec.querySelectorAll<HTMLElement>('span, a, div, p');
-        for (const el of leafElements) {
-          if (el.childElementCount <= 1 && /\.pdf\b/i.test((el.textContent || '').trim())) {
-            const card = el.closest<HTMLElement>('[role="button"], [role="link"], li, div[class*="chip" i], div[class*="item" i]') || el;
-            return card;
+    for (const el of candidates) {
+      if (el.childElementCount <= 2) {
+        const txt = (el.textContent || '').trim();
+        if (txt.length > 4 && txt.length < 120 && /\.pdf\b/i.test(txt)) {
+          if (thresholdX > 0) {
+            const rect = el.getBoundingClientRect();
+            if (rect.width > 0 && rect.left < thresholdX) {
+              continue; // Skip left-hand elements
+            }
           }
+
+          // Found .pdf element in sidebar region! Walk up to find the attachment chip container.
+          let chip: HTMLElement = el;
+          let cur: HTMLElement | null = el;
+          while (cur && cur !== document.body) {
+            const role = cur.getAttribute('role');
+            const tag = cur.tagName.toLowerCase();
+            if (role === 'button' || role === 'link' || tag === 'a' || tag === 'li') {
+              chip = cur;
+              break;
+            }
+            if (
+              cur.parentElement &&
+              (cur.parentElement.textContent?.includes('Grade') ||
+               cur.parentElement.textContent?.includes('Private comments') ||
+               cur.parentElement.textContent?.includes('Turned in'))
+            ) {
+              chip = cur;
+              break;
+            }
+            cur = cur.parentElement;
+          }
+          return chip;
         }
       }
+    }
+
+    // 2. Search by title / aria-label attribute
+    const attrElements = document.querySelectorAll<HTMLElement>('[title*=".pdf" i], [aria-label*=".pdf" i]');
+    for (const el of attrElements) {
+      const chip = el.closest<HTMLElement>('[role="button"], [role="link"], a, li') || el;
+      return chip;
     }
 
     return null;
   }
 
-  private findRightSidebarMountPoint(): { container?: HTMLElement; insertAfter?: HTMLElement } | null {
+  private findRightSidebarMountPoint(): { container?: HTMLElement; insertAfter?: HTMLElement; insertBefore?: HTMLElement } | null {
+    // 1. Insert directly after the submission PDF chip/card
     const chip = this.findSubmissionPdfChip();
-    if (chip) {
-      return { insertAfter: chip };
+    if (chip && chip.parentElement) {
+      let target: HTMLElement = chip;
+      if (target.parentElement && target.parentElement.clientHeight > 0 && target.parentElement.clientHeight < 42 && target.parentElement.parentElement) {
+        target = target.parentElement;
+      }
+      return { insertAfter: target };
     }
 
-    const allDivs = document.querySelectorAll<HTMLElement>('aside, div[class*="sidebar" i], div');
-    for (const el of allDivs) {
-      if (el.clientWidth > 220 && el.clientWidth < 450 && el.textContent?.includes('Grade and feedback')) {
-        const gradeSection = el.querySelector<HTMLElement>('input[type="number"], [aria-label*="grade" i]')?.closest<HTMLElement>('div');
-        if (gradeSection) {
-          return { insertAfter: (gradeSection.previousElementSibling as HTMLElement) || gradeSection };
+    // 2. Fallback: Insert immediately above the "Grade" input section
+    const gradeInputs = document.querySelectorAll<HTMLInputElement>('input[type="number"], input[type="text"], input');
+    for (const inp of gradeInputs) {
+      const aria = (inp.getAttribute('aria-label') || '').toLowerCase();
+      const parentTxt = (inp.parentElement?.parentElement?.textContent || '').toLowerCase();
+      if (aria.includes('grade') || parentTxt.includes('grade') || parentTxt.includes('/')) {
+        let gradeRow: HTMLElement = inp;
+        while (
+          gradeRow.parentElement &&
+          gradeRow.parentElement !== document.body &&
+          !gradeRow.parentElement.textContent?.includes('Grade and feedback')
+        ) {
+          if (gradeRow.parentElement.clientWidth > 150) {
+            break;
+          }
+          gradeRow = gradeRow.parentElement;
         }
-        return { container: el };
+        return { insertBefore: gradeRow };
+      }
+    }
+
+    // 3. Fallback: Find the right sidebar container (contains "Grade and feedback")
+    const allDivs = document.querySelectorAll<HTMLElement>('aside, [role="complementary"], div');
+    for (const el of allDivs) {
+      if (el.textContent?.includes('Grade and feedback')) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 180) {
+          return { container: el };
+        }
       }
     }
 
@@ -251,107 +342,117 @@ class ClassroomStylusApp {
 
     const host = this.findRightSidebarMountPoint();
     if (!host) {
-      setTimeout(() => this.injectRightSidebarButton(), 400);
       return;
     }
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'classroom-stylus-sidebar-btn';
-    btn.innerHTML = `
-      <span class="cs-btn-icon">✏️</span>
-      <span class="cs-btn-text">Grade with Stylus</span>
-    `;
+    if (!this.sidebarButton) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'classroom-stylus-sidebar-btn';
+      btn.innerHTML = `
+        <span class="cs-btn-icon">✏️</span>
+        <span class="cs-btn-text">Grade with RedPen</span>
+      `;
 
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.toggleCanvasMode();
-    });
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.toggleCanvasMode();
+      });
+
+      this.sidebarButton = btn;
+    }
 
     if (host.insertAfter && host.insertAfter.parentElement) {
-      host.insertAfter.parentElement.insertBefore(btn, host.insertAfter.nextSibling);
+      host.insertAfter.parentElement.insertBefore(this.sidebarButton, host.insertAfter.nextSibling);
+    } else if (host.insertBefore && host.insertBefore.parentElement) {
+      host.insertBefore.parentElement.insertBefore(this.sidebarButton, host.insertBefore);
     } else if (host.container) {
-      host.container.appendChild(btn);
+      host.container.appendChild(this.sidebarButton);
     }
-
-    this.sidebarButton = btn;
-  }
-
-  private injectTopBarButton() {
-    if (this.topBarButton && document.body.contains(this.topBarButton)) {
-      return;
-    }
-
-    const targetSubHeader = this.findClassroomTopSubHeader();
-    if (!targetSubHeader) {
-      setTimeout(() => this.injectTopBarButton(), 400);
-      return;
-    }
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'classroom-stylus-topbar-btn';
-    btn.innerHTML = `
-      <span class="cs-btn-icon">✏️</span>
-      <span class="cs-btn-text">Grade with Stylus</span>
-    `;
-
-    btn.addEventListener('click', () => {
-      this.toggleCanvasMode();
-    });
-
-    const returnBtn = this.findReturnButton(targetSubHeader);
-    if (returnBtn && returnBtn.parentElement) {
-      returnBtn.parentElement.insertBefore(btn, returnBtn);
-    } else {
-      targetSubHeader.appendChild(btn);
-    }
-
-    this.topBarButton = btn;
   }
 
   private removeButtons() {
-    if (this.topBarButton && this.topBarButton.parentNode) {
-      this.topBarButton.parentNode.removeChild(this.topBarButton);
-      this.topBarButton = null;
-    }
     if (this.sidebarButton && this.sidebarButton.parentNode) {
       this.sidebarButton.parentNode.removeChild(this.sidebarButton);
       this.sidebarButton = null;
     }
+    // Clean up any old topbar buttons that might have been injected
+    document.querySelectorAll('.classroom-stylus-topbar-btn').forEach((el) => {
+      el.parentNode?.removeChild(el);
+    });
   }
 
-  private findClassroomTopSubHeader(): HTMLElement | null {
-    const returnBtn = this.findReturnButton();
-    if (returnBtn && returnBtn.parentElement) {
-      return returnBtn.parentElement;
+  private async checkAuthStatus(): Promise<{ isAuthenticated: boolean; hasClientId: boolean }> {
+    const resp = await this.sendMessage({ type: 'AUTH_STATUS' });
+    if (resp && resp.success && resp.data) {
+      return {
+        isAuthenticated: !!resp.data.isAuthenticated,
+        hasClientId: !!resp.data.clientId,
+      };
     }
-
-    const arrows = document.querySelectorAll('button[aria-label*="next" i], button[aria-label*="previous" i]');
-    if (arrows.length > 0 && arrows[0].parentElement) {
-      return arrows[0].parentElement;
-    }
-
-    const headers = document.querySelectorAll<HTMLElement>('header, [role="banner"], [role="toolbar"], div[class*="header" i]');
-    for (const h of headers) {
-      if (h.textContent?.includes('.pdf') || h.textContent?.includes('Quiz') || h.textContent?.includes('Return')) {
-        return h;
-      }
-    }
-
-    return null;
+    return { isAuthenticated: false, hasClientId: false };
   }
 
-  private findReturnButton(scope: ParentNode = document): HTMLElement | null {
-    const buttons = scope.querySelectorAll<HTMLElement>('button, [role="button"]');
-    for (const b of buttons) {
-      const txt = (b.textContent || '').trim().toLowerCase();
-      const aria = (b.getAttribute('aria-label') || '').toLowerCase();
-      if (txt === 'return' || aria === 'return') {
-        return b;
-      }
+  private promptForAuth(hasClientId: boolean, fileIdOverride?: string) {
+    document.querySelectorAll('.cs-auth-modal-overlay').forEach((el) => el.remove());
+
+    const overlay = document.createElement('div');
+    overlay.className = 'cs-modal-overlay cs-auth-modal-overlay';
+
+    if (!hasClientId) {
+      overlay.innerHTML = `
+        <div class="cs-modal-card">
+          <h3 class="cs-modal-title">⚙️ Google Cloud Setup Required</h3>
+          <p class="cs-modal-body">
+            Before you can grade with RedPen and save flattened PDFs to Google Drive, please configure your Google Cloud Client ID.
+            Click the <strong>RedPen extension icon</strong> in your browser toolbar to complete the quick 3-step setup.
+          </p>
+          <div class="cs-modal-actions">
+            <button type="button" class="cs-modal-btn cs-modal-cancel">Close</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      overlay.querySelector('.cs-modal-cancel')?.addEventListener('click', () => overlay.remove());
+      return;
     }
-    return null;
+
+    overlay.innerHTML = `
+      <div class="cs-modal-card">
+        <h3 class="cs-modal-title">🔐 Sign In to Google Drive</h3>
+        <p class="cs-modal-body">
+          Authentication is required to download and autosave graded student PDF submissions directly to Google Drive. Click below to sign in:
+        </p>
+        <div class="cs-modal-actions">
+          <button type="button" class="cs-modal-btn cs-modal-cancel">Cancel</button>
+          <button type="button" class="cs-modal-btn cs-modal-confirm cs-auth-signin-btn">🚀 Sign In with Google</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('.cs-modal-cancel')?.addEventListener('click', () => overlay.remove());
+
+    const signInBtn = overlay.querySelector<HTMLButtonElement>('.cs-auth-signin-btn');
+    signInBtn?.addEventListener('click', async () => {
+      signInBtn.disabled = true;
+      signInBtn.textContent = 'Signing in...';
+
+      const resp = await this.sendMessage({ type: 'AUTH_GET_TOKEN', interactive: true });
+      if (resp && resp.success) {
+        overlay.remove();
+        this.showToast('Successfully signed in! Opening grading canvas...', 'success');
+        setTimeout(() => {
+          this.enterCanvasMode(fileIdOverride);
+        }, 300);
+      } else {
+        signInBtn.disabled = false;
+        signInBtn.textContent = '🚀 Sign In with Google';
+        this.showToast(`Sign-in failed: ${resp?.error || 'Access denied'}`, 'error');
+      }
+    });
   }
 
   private async toggleCanvasMode() {
@@ -366,15 +467,18 @@ class ClassroomStylusApp {
    * Overrides the Google Drive center preview window and injects our custom Stylus Canvas.
    */
   public async enterCanvasMode(fileIdOverride?: string) {
-    console.log('[ClassroomStylus] Entering Canvas Mode...');
+    console.log('[RedPen] Entering Canvas Mode...');
+
+    // 0. Make sure the user is authenticated with Google before opening canvas
+    const authStatus = await this.checkAuthStatus();
+    if (!authStatus.isAuthenticated) {
+      this.promptForAuth(authStatus.hasClientId, fileIdOverride);
+      return;
+    }
+
     this.isCanvasActive = true;
 
     // 1. Immediately update button states safely
-    if (this.topBarButton) {
-      this.topBarButton.classList.add('active');
-      const textEl = this.topBarButton.querySelector('.cs-btn-text');
-      if (textEl) textEl.textContent = '✓ Grading Active';
-    }
     if (this.sidebarButton) {
       this.sidebarButton.classList.add('active');
       const textEl = this.sidebarButton.querySelector('.cs-btn-text');
@@ -429,8 +533,9 @@ class ClassroomStylusApp {
       previewHost.style.setProperty('position', 'relative', 'important');
       previewHost.style.setProperty('width', '100%', 'important');
       previewHost.style.setProperty('height', '100%', 'important');
-      previewHost.style.setProperty('max-height', 'calc(100vh - 110px)', 'important');
-      previewHost.style.setProperty('background-color', '#171717', 'important');
+      previewHost.style.setProperty('max-height', '100%', 'important');
+      previewHost.style.setProperty('min-height', '0', 'important');
+      previewHost.style.setProperty('background-color', '#13181c', 'important');
       previewHost.style.setProperty('display', 'flex', 'important');
       previewHost.style.setProperty('flex-direction', 'column', 'important');
       previewHost.style.setProperty('overflow', 'hidden', 'important');
@@ -444,8 +549,9 @@ class ClassroomStylusApp {
         width: 100% !important;
         height: 100% !important;
         max-height: 100% !important;
+        min-height: 0 !important;
         z-index: 1000 !important;
-        background-color: #171717 !important;
+        background-color: #13181c !important;
         display: flex !important;
         flex-direction: column !important;
         overflow: hidden !important;
@@ -461,7 +567,7 @@ class ClassroomStylusApp {
         right: 360px !important;
         bottom: 0px !important;
         z-index: 9999 !important;
-        background-color: #171717 !important;
+        background-color: #13181c !important;
         display: flex !important;
         flex-direction: column !important;
         overflow: hidden !important;
@@ -475,6 +581,8 @@ class ClassroomStylusApp {
       onPenColorChange: (color) => this.stylusEngine?.updateOptions({ penColor: color }),
       onPenThicknessChange: (thick) => this.stylusEngine?.updateOptions({ penThickness: thick }),
       onHighlighterColorChange: (color) => this.stylusEngine?.updateOptions({ highlighterColor: color }),
+      onHighlighterThicknessChange: (thick) => this.stylusEngine?.updateOptions({ highlighterThickness: thick }),
+      onTextSizeChange: (size) => this.stylusEngine?.updateOptions({ textSize: size }),
       onUndo: () => {
         if (!this.canvasViewer || !this.stylusEngine) return;
         const result = this.stylusEngine.undo(this.canvasViewer.getStrokes());
@@ -506,6 +614,13 @@ class ClassroomStylusApp {
         }
       },
       onClose: () => this.exitCanvasMode(),
+      onZoomIn: () => this.canvasViewer?.zoomIn(),
+      onZoomOut: () => this.canvasViewer?.zoomOut(),
+      onZoomReset: () => this.canvasViewer?.resetZoom(),
+      onPrevPage: () => this.canvasViewer?.prevPage(),
+      onNextPage: () => this.canvasViewer?.nextPage(),
+      onScrollHalfPageDown: () => this.canvasViewer?.scrollHalfPageDown(),
+      onScrollHalfPageUp: () => this.canvasViewer?.scrollHalfPageUp(),
     });
 
     this.overlayContainer.appendChild(this.toolbar.getElement());
@@ -520,6 +635,7 @@ class ClassroomStylusApp {
       penThickness: settings.defaultPenThickness,
       highlighterColor: settings.defaultHighlighterColor,
       highlighterThickness: settings.defaultHighlighterThickness,
+      textSize: 24,
       onStrokeAdded: () => this.markDirtyAndDebounceSave(),
       onStrokeErased: () => this.markDirtyAndDebounceSave(),
       onHistoryChange: (canUndo, canRedo) => this.toolbar?.setHistoryState(canUndo, canRedo),
@@ -528,6 +644,10 @@ class ClassroomStylusApp {
     this.canvasViewer = new CanvasViewer(this.stylusEngine, {
       onStrokeDrawn: () => this.markDirtyAndDebounceSave(),
       onStrokeErased: () => this.markDirtyAndDebounceSave(),
+    });
+
+    this.canvasViewer.setPageZoomCallback((page, total, zoomPct) => {
+      this.toolbar?.updatePageZoomState(page, total, zoomPct);
     });
 
     this.overlayContainer.appendChild(this.canvasViewer.getElement());
@@ -544,7 +664,7 @@ class ClassroomStylusApp {
           fileId = searchResp.data.fileId;
         }
       } catch (e) {
-        console.warn('[ClassroomStylus] File search fallback error:', e);
+        console.warn('[RedPen] File search fallback error:', e);
       }
     }
 
@@ -557,7 +677,7 @@ class ClassroomStylusApp {
           this.currentContext.submissionId
         );
       } catch (e) {
-        console.warn('[ClassroomStylus] Classroom API resolution error:', e);
+        console.warn('[RedPen] Classroom API resolution error:', e);
       }
     }
 
@@ -693,7 +813,7 @@ class ClassroomStylusApp {
             });
           }
         } catch (e) {
-          console.warn('[ClassroomStylus] Non-critical: could not pin original revision:', e);
+          console.warn('[RedPen] Non-critical: could not pin original revision:', e);
         }
 
         await storage.saveCleanBasePdf(fileId, rawBytes, this.originalRevisionId);
@@ -710,7 +830,7 @@ class ClassroomStylusApp {
 
       this.toolbar?.setSyncStatus('saved');
     } catch (err: any) {
-      console.error('[ClassroomStylus] Error loading PDF:', err);
+      console.error('[RedPen] Error loading PDF:', err);
       this.toolbar?.setSyncStatus('error', err.message);
       this.showToast(`Error: ${err.message}`, 'error');
     }
@@ -774,13 +894,15 @@ class ClassroomStylusApp {
         throw new Error(resp.error || 'Failed to upload modified PDF');
       }
 
-      this.sessionData.isDirty = false;
-      this.sessionData.lastSavedTime = Date.now();
-      await storage.saveSessionStrokes(this.sessionData);
+      if (this.sessionData) {
+        this.sessionData.isDirty = false;
+        this.sessionData.lastSavedTime = Date.now();
+        await storage.saveSessionStrokes(this.sessionData);
+      }
 
       this.toolbar?.setSyncStatus('saved');
     } catch (err: any) {
-      console.error('[ClassroomStylus] Autosave error:', err);
+      console.error('[RedPen] Autosave error:', err);
       this.toolbar?.setSyncStatus('error', err.message);
     } finally {
       this.isSaving = false;
@@ -832,7 +954,7 @@ class ClassroomStylusApp {
       this.toolbar?.setSyncStatus('saved');
       this.showToast('Restored to student’s unannotated original upload.', 'info');
     } catch (err: any) {
-      console.error('[ClassroomStylus] Failed to restore original:', err);
+      console.error('[RedPen] Failed to restore original:', err);
       this.toolbar?.setSyncStatus('error', err.message);
       this.showToast(`Restore failed: ${err.message}`, 'error');
     }
@@ -848,16 +970,10 @@ class ClassroomStylusApp {
   private teardownCanvas() {
     this.isCanvasActive = false;
 
-    if (this.topBarButton) {
-      this.topBarButton.classList.remove('active');
-      const textEl = this.topBarButton.querySelector('.cs-btn-text');
-      if (textEl) textEl.textContent = 'Grade with Stylus';
-    }
-
     if (this.sidebarButton) {
       this.sidebarButton.classList.remove('active');
       const textEl = this.sidebarButton.querySelector('.cs-btn-text');
-      if (textEl) textEl.textContent = 'Grade with Stylus';
+      if (textEl) textEl.textContent = 'Grade with RedPen';
     }
 
     if (this.toolbar) {
@@ -921,16 +1037,30 @@ class ClassroomStylusApp {
 
   private sendMessage<T = any>(msg: ExtensionMessage): Promise<ExtensionResponse<T>> {
     return new Promise((resolve) => {
-      chrome.runtime.sendMessage(msg, (response) => {
-        if (chrome.runtime.lastError) {
-          resolve({
-            success: false,
-            error: chrome.runtime.lastError.message || 'Extension background unreachable',
-          });
-        } else {
-          resolve(response || { success: false, error: 'Empty response from background' });
-        }
-      });
+      if (!isExtensionValid()) {
+        resolve({
+          success: false,
+          error: 'Extension context invalidated. Please reload the page.',
+        });
+        return;
+      }
+      try {
+        chrome.runtime.sendMessage(msg, (response) => {
+          if (chrome.runtime.lastError) {
+            resolve({
+              success: false,
+              error: chrome.runtime.lastError.message || 'Extension background unreachable',
+            });
+          } else {
+            resolve(response || { success: false, error: 'Empty response from background' });
+          }
+        });
+      } catch (err: any) {
+        resolve({
+          success: false,
+          error: err?.message || 'Context invalidated',
+        });
+      }
     });
   }
 

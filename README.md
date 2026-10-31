@@ -1,127 +1,156 @@
-# Classroom Stylus - In-Page PDF Grading Canvas for Google Classroom
+# RedPen Classroom - In-Page PDF Grading for Google Classroom
 
-A complete, production-ready **Manifest V3** Chromium browser extension (specifically optimized for **Brave** and **Chrome**) that injects an in-page stylus grading canvas directly into Google Classroom's submission grading interface (`https://classroom.google.com/c/*/a/*/submissions/*`).
+<p align="center">
+  <img src="public/icons/logo-max.png" alt="RedPen Classroom Logo" width="180" style="border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);" />
+</p>
 
----
+<p align="center">
+  <strong>Fast, fluid, native stylus PDF grading directly inside Google Classroom with zero third-party servers.</strong><br />
+  Autosaves flattened PDFs in-place to Google Drive. Built for Brave and Chrome (Manifest V3).
+</p>
 
-## ✨ Features & Architectural Highlights
-
-### 1. SPA Routing & Seamless Native Classroom DOM Injection
-- **SPA Change Detection**: Google Classroom is a Single Page Application. As teachers navigate between students (using the top switcher dropdown or `<` `>` arrows) or switch attachments in the right sidebar, the extension automatically detects changes using monkey-patched `pushState`/`replaceState`, `popstate`, and a `MutationObserver`.
-- **Preserved Native UI**: Keeps Classroom's left navigation sidebar, top sub-header (`Student switcher`, `Return` button), and right grading sidebar (`Grade (/42)`, `Private comments`, `Comment bank`) completely untouched and fully interactive.
-- **Center Dark Header Injection**: In Classroom's dark header bar (`#202124`), directly next to the native `"Edit with"` button, injects a matching dark-mode pill button: `"✏️ Grade with Stylus"`.
-- **Dark-Mode Grading Toolbar**: When active, transforms the center of the dark header bar into a compact dark-mode toolbar (`#2d2e30` pills, `#e8eaed` text/icons, `#8ab4f8` Google Blue active accents):
-  - **Pen**: Color dots (Red `#ef4444` grading default, Green `#22c55e`, Blue `#3b82f6`, Black `#000000`) and 3 thickness presets (Fine `2px`, Med `4px`, Thick `8px`).
-  - **Highlighter**: Yellow `#facc15` and Green `#4ade80` with semi-transparent multiply blending (`opacity: 0.35`).
-  - **Stroke Eraser**: Stroke-level eraser using point-to-segment distance collision math. Touching any stroke drawn in the current session immediately deletes the entire stroke.
-  - **Undo / Redo**: Keyboard shortcuts (`Ctrl+Z`, `Ctrl+Y` / `Cmd+Z`, `Cmd+Shift+Z`) and icon buttons.
-  - **Palm Rejection Guard**: Toggle between `"Stylus Only"` (strict pen mode, rejects finger/palm touches) and `"Stylus + Mouse"`.
-  - **"↺ Reset to Original"**: One-click restore button with confirmation modal that reverts the Google Drive file to the student's initial clean unannotated upload.
-  - **Sync Status Pill**: Subtle indicator showing `"✓ Saved"`, `"Syncing..."` (pulsing amber spinner), `"Unsaved"`, or `"⚠️ Sync error"`.
-
-### 2. Layered Google Drive `fileId` Extraction
-- **Layer 1 (Preview Iframe & DOM)**: Parses embedded Drive iframe URLs (`/file/d/{fileId}`, `?id={fileId}`) and DOM data attributes (`[data-drive-id]`, `[data-id]`).
-- **Layer 2 (Google Classroom API Fallback)**: Automatically parses URL route `/c/{courseId}/a/{courseWorkId}/submissions/.../student/{studentSubId}` and calls `courses.courseWork.studentSubmissions.get` to resolve `driveFile.id`.
-- **Layer 3 (Performance Timing)**: Scans recent network performance resources for Drive file identifiers.
-
-### 3. High-Performance Stylus Engine (PointerEvents API)
-- Continuous vertical PDF page rendering via `PDF.js` (`pdfjs-dist`) inside the center dark `#171717` container.
-- Stacked HTML5 `<canvas>` annotation overlays positioned above each page.
-- Coalesced Pointer Events (`e.getCoalescedEvents()`) for high-refresh rate styluses (120Hz-240Hz on Apple Pencil, Surface Pen, USI Chromebook styluses).
-- Dynamic line weighting calculated from `e.pressure`.
-- Quadratic Bezier midpoint curve smoothing for handwriting without jitter.
-- Coordinates recorded in unscaled PDF points so zooming in or out never distorts or moves strokes.
-- Floating bottom dark pill (`Page X / Y | - 🔍 +` | `Fit Width`).
-
-### 4. Session Cache, Autosave Flattening & "Restore Original" Architecture
-- **Clean Base PDF Caching**: When a PDF is opened, downloads raw PDF bytes via `GET https://www.googleapis.com/drive/v3/files/{fileId}?alt=media` and caches `cleanBasePdfBytes` in IndexedDB (`pdfStylusGradingDB`).
-- **Original Revision Pinning**: Calls `GET https://www.googleapis.com/drive/v3/files/{fileId}/revisions`, identifies `revisions[0].id` (the student's original submission), and marks `keepForever: true` so Google Drive never auto-purges it.
-- **Debounced Autosave (2.5 seconds)**: When the teacher stops writing for 2.5s, the background flattener:
-  1. Loads a fresh clone of `cleanBasePdfBytes` into `pdf-lib`.
-  2. Bakes the active `sessionStrokes` onto the `pdf-lib` pages as clean vector lines with round caps (`LineCapStyle.Round`).
-  3. Uploads the flattened PDF in-place via `PATCH https://www.googleapis.com/upload/drive/v3/files/{fileId}?uploadType=media`.
-  Because flattening always bakes onto `cleanBasePdfBytes` rather than re-baking over previous exports, erasing a stroke in the session cleanly removes it from the saved Google Drive file!
-- **"↺ Reset to Original"**: Clears session strokes, uploads the clean base PDF (or `revisions[0]`) via `PATCH`, and refreshes the canvas immediately.
-
-### 5. Brave Browser OAuth2 Compatibility
-- Standard extensions rely on Chrome's proprietary `chrome.identity.getAuthToken`, which fails in Brave due to blocked Google profile sync.
-- This extension uses `chrome.identity.launchWebAuthFlow` with standard OAuth 2.0 Web/Chrome App flow.
-- Scopes:
-  - `https://www.googleapis.com/auth/drive`
-  - `https://www.googleapis.com/auth/classroom.coursework.students.readonly`
-- Automatically caches tokens in `chrome.storage.local` with renewal buffer.
+<p align="center">
+  <img src="https://img.shields.io/badge/Manifest-V3-f0393c.svg" alt="Manifest V3" />
+  <img src="https://img.shields.io/badge/Platform-Brave%20%7C%20Chrome-13181c.svg" alt="Platforms" />
+  <img src="https://img.shields.io/badge/Tests-32%20Passing-81c995.svg" alt="Tests" />
+  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License" />
+</p>
 
 ---
 
-## 🛠️ Build & Installation Instructions
+## 🚀 Why RedPen?
 
-### Prerequisites
-- Node.js (v18+) and npm.
+Grading student PDF assignments in Google Classroom typically requires third-party web apps (Lumin, Kami, etc.) that demand external accounts, cloud storage syncing, or slow multi-window flows.
 
-### 1. Build the Extension
+**RedPen Classroom** eliminates this friction by injecting an ultra-low-latency vector grading canvas **directly inside Google Classroom's grading interface** (`https://classroom.google.com/c/*/a/*/submissions/*`).
+
+- 🎯 **In-Place Grading**: Click **"✏️ Grade with RedPen"** on the student's submission card or header. Grade without ever leaving Classroom.
+- ⚡ **Zero External Servers**: RedPen runs 100% locally in your browser. All API calls communicate directly with Google Drive and Classroom using your own OAuth credentials.
+- 🖊️ **Stylus & Pressure Sensitivity**: 120Hz-240Hz pointer coalescing, pressure-sensitive line weighting, and palm rejection for Apple Pencil, Surface Pen, and USI Chromebook styluses.
+- 🛡️ **Non-Compounding Vector Baking**: Flattening uses `pdf-lib` to bake annotations onto a clean cached base. Erasing a stroke removes it from the Drive PDF without degrading document quality.
+- ↺ **One-Click Original Restore**: Google Drive's initial revision is pinned (`keepForever: true`). Revert to the student's unannotated original upload at any time.
+
+---
+
+## 🎨 Toolset & UI
+
+RedPen follows a minimalist dark interface (`#13181c`) with signature red accents (`#f0393c`):
+
+| Tool | Default Color Palette | Description |
+| :--- | :--- | :--- |
+| **Pen** | Red (`#f0393c`), Blue (`#3b82f6`), Black (`#000000`) | Smooth Bezier handwriting with pressure sensitivity. Thickness configurable via `⚙️`. |
+| **Highlighter** | Yellow (`#facc15`), Purple (`#c084fc`), Green (`#4ade80`) | Semi-transparent highlight layer with `multiply` blending. |
+| **Text** | Red (`#f0393c`), Blue (`#3b82f6`), Black (`#000000`) | Click anywhere to place typed notes. Click existing notes anytime to edit. |
+| **Eraser** | — | Stroke-level eraser. Touching any annotation cleanly deletes the entire stroke. |
+
+> **Customization**: Every tool contains strictly 3 active color slots in the toolbar. Click the gear icon (`⚙️`) next to any tool to pick custom hex colors for any slot or adjust sizing with a live preview.
+
+---
+
+## ⌨️ Keyboard Shortcuts
+
+| Shortcut | Action |
+| :--- | :--- |
+| <kbd>P</kbd> | Activate **Pen** |
+| <kbd>H</kbd> | Activate **Highlighter** |
+| <kbd>T</kbd> | Activate **Text** tool |
+| <kbd>E</kbd> | Activate **Eraser** |
+| <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Cmd</kbd> + <kbd>Z</kbd> | **Undo** last stroke or action |
+| <kbd>Ctrl</kbd> + <kbd>Y</kbd> / <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | **Redo** undone action |
+| <kbd>+</kbd> / <kbd>=</kbd> | Zoom In |
+| <kbd>-</kbd> | Zoom Out |
+| <kbd>0</kbd> | Reset Zoom (Fit to Screen Width) |
+| <kbd>PageDown</kbd> / <kbd>→</kbd> | Jump to Next Page |
+| <kbd>PageUp</kbd> / <kbd>←</kbd> | Jump to Previous Page |
+| <kbd>↓</kbd> / <kbd>↑</kbd> | Scroll Half-Page Down / Up |
+
+---
+
+## 🛠️ Installation & Setup
+
+### 1. Build from Source
 ```bash
+# Clone the repository
+git clone https://github.com/yahianshi/redpen.git
+cd redpen
+
+# Install dependencies
 npm install
+
+# Run automated tests (32 tests)
+npm test
+
+# Build production bundle
 npm run build
 ```
-This produces the complete unpacked extension inside the `dist/` directory:
-- `dist/manifest.json` (Manifest V3)
-- `dist/content_script.js` (Self-contained bundled with `pdf-lib` and `pdfjs-dist`)
-- `dist/background.js` (Service worker)
-- `dist/styles.css` (Classroom dark theme styling)
-- `dist/popup.html`, `dist/options.html`
-- `dist/pdf.worker.min.mjs`
-- `dist/icons/`
+The compiled extension is output to the `./dist` folder.
 
-To run the automated verification test suite:
-```bash
-npm test
+### 2. Load into Brave or Chrome
+1. Open your browser and navigate to:
+   - **Brave**: `brave://extensions`
+   - **Chrome**: `chrome://extensions`
+2. Enable **Developer mode** (toggle in the upper right corner).
+3. Click **Load unpacked**.
+4. Select the `dist/` directory inside this repository.
+
+---
+
+## 🔑 60-Second Google Cloud Setup
+
+RedPen connects directly to your Google account via OAuth 2.0 Web Application credentials.
+
+1. Click the **RedPen** icon in your browser toolbar to open the setup wizard.
+2. **Page 1 (Redirect URI)**: Click **Copy URI** to copy your unique extension redirect URI (e.g. `https://<extension-id>.chromiumapp.org/oauth2`).
+3. Click the provided direct link to open the [Google Cloud Console Credentials Page](https://console.cloud.google.com/apis/credentials):
+   - Under **Enabled APIs & Services**, ensure **Google Drive API** and **Google Classroom API** are enabled.
+   - Click **Create Credentials** → **OAuth client ID**.
+   - Application type: **Web application**.
+   - Under **Authorized redirect URIs**, paste the URI copied in Step 2.
+   - Click **Create** and copy your **Client ID**.
+4. **Page 2 (Client ID)**: Paste your Client ID into the RedPen wizard and click **Next**.
+5. **Page 3 (Authorize)**: Click **Connect with Google**, choose your Google account, and grant access.
+
+> **Token Expiry**: Your Client ID remains safely saved. When your Google OAuth session expires, RedPen shows a one-click **"🚀 Sign In with Google"** button without requiring setup again.
+
+---
+
+## 🎓 Grading Workflow
+
+1. Open any assignment submission in Google Classroom:
+   `https://classroom.google.com/c/.../a/.../submissions/.../student/...`
+2. Look for the **"✏️ Grade with RedPen"** button on the right sidebar or header.
+3. Write feedback, highlight errors, or type summary notes.
+4. RedPen continuously auto-saves in the background (`✓ Saved` sync pill).
+5. Switch students using Classroom's native `<` `>` arrows or student dropdown. RedPen will cleanly commit pending changes and load the next student's PDF automatically.
+
+---
+
+## 📁 Project Architecture
+
+```
+redpen-classroom/
+├── dist/                  # Built extension output (unpacked target)
+├── public/
+│   ├── icons/             # Clean branded PNG icons (16, 32, 48, 128) & logos
+│   └── pdf.worker.min.mjs # Local PDF.js worker for CSP compliance
+├── src/
+│   ├── annotator/         # Standalone fullscreen grading tab
+│   ├── background/        # MV3 service worker & OAuth token manager
+│   ├── content/           # Classroom SPA detector, DOM observer & overlay injector
+│   ├── engine/            # Stylus engine, Bezier curve smoothing, stroke eraser
+│   ├── services/          # Google Drive/Classroom API, storage & PDF flattener
+│   ├── ui/                # Canvas viewer (PDF.js + canvas stacks) & responsive toolbar
+│   └── types/             # TypeScript interfaces for strokes, context & messages
+├── scripts/
+│   └── build.mjs          # Vite + Rollup multi-target build pipeline
+├── test/
+│   └── run_tests.ts       # 32-suite automated verification tests
+├── manifest.json          # Chrome Manifest V3 configuration
+└── package.json
 ```
 
-### 2. Load Unpacked in Brave or Chrome
-
-#### For Brave:
-1. Open Brave and navigate to `brave://extensions`.
-2. Toggle on **Developer mode** in the top-right corner.
-3. Click the **Load unpacked** button.
-4. Select the `/home/bl33d/Desktop/extention/dist` directory.
-
-#### For Chrome:
-1. Open Chrome and navigate to `chrome://extensions`.
-2. Toggle on **Developer mode** in the top-right corner.
-3. Click **Load unpacked**.
-4. Select the `/home/bl33d/Desktop/extention/dist` directory.
-
 ---
 
-## 🔑 60-Second Google Cloud OAuth Setup
+## 📄 License
 
-1. Click the **Classroom Stylus** extension icon in your browser toolbar to open the popup.
-2. Click the **Copy** button next to **Extension Redirect URI** (e.g., `https://<extension-id>.chromiumapp.org/oauth2`).
-3. Open [Google Cloud Console](https://console.cloud.google.com/apis/dashboard):
-   - Under **APIs & Services > Library**, enable:
-     - **Google Drive API**
-     - **Google Classroom API**
-   - Under **APIs & Services > Credentials**:
-     - Click **Create Credentials > OAuth client ID**.
-     - Choose **Web application**.
-     - Under **Authorized redirect URIs**, click **Add URI** and paste the copied extension redirect URI.
-     - Click **Create** and copy your **Client ID**.
-4. In the extension popup or Options page, paste your Client ID into the **Google Cloud OAuth Client ID** field and click **Connect with Google**.
-5. Select your Google account and grant permissions. The badge will turn green: **Authorized ✓**.
-
----
-
-## 📝 Grading in Google Classroom
-
-1. Navigate to any Google Classroom assignment grading page:
-   `https://classroom.google.com/c/.../a/.../submissions/...`
-2. In the dark header bar above the student's PDF, click `"✏️ Grade with Stylus"`.
-3. The custom grading canvas opens immediately:
-   - Select **Pen** or **Highlighter**.
-   - Choose a grading color (Red, Green, Blue, Black).
-   - Draw annotations using your stylus or mouse. Dynamic pressure sensitivity adjusts line thickness.
-   - Use the **Eraser** to delete any session stroke with a single tap.
-   - Use `Ctrl+Z` / `Ctrl+Y` to Undo and Redo.
-4. As you grade, the autosave debouncer flattens strokes and updates Google Drive automatically (`✓ Saved`).
-5. Switching students (via top dropdown or `<` `>` arrows) seamlessly saves pending edits and loads the next submission.
-6. Click `"↺ Reset Original"` at any time to discard all annotations and revert to the student's initial upload.
+MIT License. Free and open source for teachers and educators everywhere.

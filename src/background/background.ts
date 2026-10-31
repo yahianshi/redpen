@@ -3,7 +3,7 @@ import { DriveService } from '../services/drive';
 import { storage } from '../services/storage';
 import { ExtensionMessage, ExtensionResponse } from '../types';
 
-console.log('[ClassroomStylus] Background service worker started.');
+console.log('[RedPen] Background service worker started.');
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   let binary = '';
@@ -29,7 +29,7 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
   handleMessage(message)
     .then((res) => sendResponse(res))
     .catch((err) => {
-      console.error('[ClassroomStylus Background] Error processing message:', err);
+      console.error('[RedPen Background] Error processing message:', err);
       sendResponse({
         success: false,
         error: err?.message || 'Unknown background processing error',

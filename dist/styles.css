@@ -1,13 +1,13 @@
-/* Google Classroom Stylus Grading Canvas Stylesheet */
+/* RedPen Classroom Stylus Grading Canvas Stylesheet */
 
 /* Injected Button in Classroom's Top Sub-Header Bar (Next to Return / Switcher) */
 .classroom-stylus-topbar-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background-color: #1a73e8;
+  background-color: #f0393c;
   color: #ffffff;
-  border: 1px solid #1a73e8;
+  border: 1px solid #f0393c;
   border-radius: 9999px;
   height: 36px;
   padding: 0 16px;
@@ -18,18 +18,19 @@
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   z-index: 1000;
 }
 
 .classroom-stylus-topbar-btn:hover {
-  background-color: #1765cc;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  background-color: #d62b2e;
+  border-color: #d62b2e;
+  box-shadow: 0 2px 6px rgba(240, 57, 60, 0.35);
 }
 
 .classroom-stylus-topbar-btn.active {
-  background-color: #0d47a1;
-  border-color: #8ab4f8;
+  background-color: #b31d20;
+  border-color: #f0393c;
   color: #ffffff;
 }
 
@@ -40,9 +41,13 @@
   justify-content: center !important;
   gap: 8px !important;
   width: 100% !important;
+  min-width: 160px !important;
+  max-width: 100% !important;
+  flex-shrink: 0 !important;
   box-sizing: border-box !important;
   height: 38px !important;
-  background-color: #1a73e8 !important;
+  min-height: 38px !important;
+  background-color: #f0393c !important;
   color: #ffffff !important;
   border: none !important;
   border-radius: 8px !important;
@@ -52,20 +57,20 @@
   font-size: 13.5px !important;
   font-weight: 500 !important;
   cursor: pointer !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
   transition: all 0.15s ease !important;
   user-select: none !important;
   z-index: 100 !important;
 }
 
 .classroom-stylus-sidebar-btn:hover {
-  background-color: #1765cc !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+  background-color: #d62b2e !important;
+  box-shadow: 0 3px 8px rgba(240, 57, 60, 0.4) !important;
 }
 
 .classroom-stylus-sidebar-btn.active {
-  background-color: #0d47a1 !important;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+  background-color: #b31d20 !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3) !important;
 }
 
 .classroom-stylus-sidebar-btn .cs-btn-icon {
@@ -83,14 +88,14 @@
   vertical-align: middle;
 }
 
-/* Injected Pill Button into Classroom's Header Bar (#202124) */
+/* Injected Pill Button into Classroom's Header Bar */
 .classroom-stylus-inject-pill-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background-color: #2d2e30;
+  background-color: #1a2126;
   color: #e8eaed;
-  border: 1px solid #5f6368;
+  border: 1px solid #2c3740;
   border-radius: 9999px;
   height: 36px;
   padding: 0 16px;
@@ -105,14 +110,14 @@
 }
 
 .classroom-stylus-inject-pill-btn:hover {
-  background-color: #3c4043;
-  border-color: #8ab4f8;
+  background-color: #242c33;
+  border-color: #f0393c;
 }
 
 .classroom-stylus-inject-pill-btn.active {
-  background-color: rgba(138, 180, 248, 0.15);
-  border-color: #8ab4f8;
-  color: #8ab4f8;
+  background-color: rgba(240, 57, 60, 0.15);
+  border-color: #f0393c;
+  color: #f0393c;
 }
 
 .classroom-stylus-inject-pill-btn .cs-btn-icon {
@@ -122,15 +127,19 @@
 /* Header Toolbar Bar */
 .classroom-stylus-toolbar-bar {
   width: 100%;
-  background-color: #202124;
-  border-bottom: 1px solid #3c4043;
-  padding: 8px 16px;
+  min-height: 48px;
+  height: auto !important;
+  background-color: #13181c;
+  border-bottom: 1px solid #2c3740;
+  padding: 4px 12px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Google Sans', Roboto, system-ui, -apple-system, sans-serif;
   z-index: 1000;
+  flex-shrink: 0;
+  overflow: visible;
 }
 
 .cs-toolbar-inner {
@@ -138,8 +147,15 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  max-width: 1400px;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.cs-toolbar-inner::-webkit-scrollbar {
+  display: none;
 }
 
 .cs-tool-group,
@@ -152,7 +168,7 @@
 .cs-divider {
   width: 1px;
   height: 24px;
-  background-color: #3c4043;
+  background-color: #2c3740;
   margin: 0 4px;
 }
 
@@ -161,7 +177,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background-color: #2d2e30;
+  background-color: #1a2126;
   color: #e8eaed;
   border: 1px solid transparent;
   border-radius: 9999px;
@@ -175,13 +191,13 @@
 }
 
 .cs-pill-btn:hover {
-  background-color: #3c4043;
+  background-color: #242c33;
 }
 
 .cs-pill-btn.active {
-  background-color: rgba(138, 180, 248, 0.2);
-  border-color: #8ab4f8;
-  color: #8ab4f8;
+  background-color: rgba(240, 57, 60, 0.18);
+  border-color: #f0393c;
+  color: #f0393c;
 }
 
 .cs-icon-btn {
@@ -191,7 +207,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background-color: #2d2e30;
+  background-color: #1a2126;
   color: #e8eaed;
   border: none;
   cursor: pointer;
@@ -199,7 +215,7 @@
 }
 
 .cs-icon-btn:hover:not(:disabled) {
-  background-color: #3c4043;
+  background-color: #242c33;
 }
 
 .cs-icon-btn:disabled {
@@ -224,14 +240,15 @@
 
 /* Color dots and thickness controls */
 .cs-pen-options,
-.cs-highlighter-options {
+.cs-highlighter-options,
+.cs-text-options {
   display: flex;
   align-items: center;
   gap: 6px;
-  background-color: #171717;
+  background-color: #13181c;
   padding: 3px 8px;
   border-radius: 9999px;
-  border: 1px solid #3c4043;
+  border: 1px solid #2c3740;
 }
 
 .cs-color-dots {
@@ -260,6 +277,18 @@
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
 }
 
+.cs-custom-color-picker-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.cs-custom-color-picker-label:hover {
+  transform: scale(1.2);
+}
+
 .cs-thickness-pills {
   display: flex;
   align-items: center;
@@ -271,22 +300,211 @@
   background: none;
   border: none;
   color: #9aa0a6;
-  font-size: 11px;
+  font-size: 11.5px;
+  font-weight: 500;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 4px;
   transition: color 0.1s ease, background-color 0.1s ease;
+  user-select: none;
 }
 
 .cs-thick-btn:hover {
   color: #e8eaed;
-  background-color: #2d2e30;
+  background-color: #1a2126;
 }
 
 .cs-thick-btn.selected {
-  color: #8ab4f8;
+  color: #f0393c;
   font-weight: 700;
-  background-color: rgba(138, 180, 248, 0.15);
+  background-color: rgba(240, 57, 60, 0.15);
+}
+
+.cs-btn-open-custom {
+  background-color: #1a2126 !important;
+  color: #f0393c !important;
+  border: 1px solid #2c3740 !important;
+  border-radius: 9999px !important;
+  padding: 2px 8px !important;
+  margin-left: 2px !important;
+}
+
+.cs-btn-open-custom:hover {
+  background-color: #242c33 !important;
+  border-color: #f0393c !important;
+}
+
+/* Floating Customization Popover */
+.cs-custom-popover {
+  position: absolute !important;
+  top: calc(100% + 6px) !important;
+  background-color: #1a2126 !important;
+  border: 1px solid #2c3740 !important;
+  border-radius: 8px !important;
+  padding: 12px 14px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8) !important;
+  z-index: 10000 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  min-width: 230px !important;
+  user-select: none !important;
+  animation: cs-fade-in 0.15s ease;
+}
+
+@keyframes cs-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.cs-pop-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  border-bottom: 1px solid #2c3740 !important;
+  padding-bottom: 6px !important;
+}
+
+.cs-pop-title {
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: #e8eaed !important;
+}
+
+.cs-pop-close {
+  background: none !important;
+  border: none !important;
+  color: #9aa0a6 !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  padding: 2px 4px !important;
+  line-height: 1 !important;
+}
+
+.cs-pop-close:hover {
+  color: #ffffff !important;
+}
+
+.cs-pop-row {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
+}
+
+.cs-pop-label-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.cs-pop-label {
+  font-size: 12px !important;
+  color: #9aa0a6 !important;
+}
+
+.cs-pop-size-label {
+  font-size: 12px !important;
+  color: #f0393c !important;
+  font-weight: 600 !important;
+}
+
+.cs-pop-slot-text {
+  font-size: 11px !important;
+  color: #f0393c !important;
+  font-weight: 500 !important;
+}
+
+.cs-pop-slots-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin: 4px 0 !important;
+}
+
+.cs-pop-slot {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 50% !important;
+  border: 2px solid #2c3740 !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  transition: all 0.12s ease !important;
+}
+
+.cs-pop-slot:hover {
+  transform: scale(1.15) !important;
+}
+
+.cs-pop-slot.selected {
+  border-color: #ffffff !important;
+  transform: scale(1.2) !important;
+  box-shadow: 0 0 8px rgba(240, 57, 60, 0.7) !important;
+}
+
+.cs-pop-color-group {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.cs-pop-color-picker {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 6px !important;
+  border: 1px solid #2c3740 !important;
+  background: none !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+}
+
+.cs-pop-hex-input {
+  flex: 1 !important;
+  height: 28px !important;
+  background-color: #13181c !important;
+  border: 1px solid #2c3740 !important;
+  border-radius: 4px !important;
+  color: #e8eaed !important;
+  padding: 0 8px !important;
+  font-family: monospace !important;
+  font-size: 12px !important;
+  outline: none !important;
+}
+
+.cs-pop-hex-input:focus {
+  border-color: #f0393c !important;
+}
+
+.cs-pop-slider {
+  width: 100% !important;
+  accent-color: #f0393c !important;
+  cursor: pointer !important;
+  height: 5px !important;
+}
+
+.cs-pop-preview-box {
+  background-color: #13181c !important;
+  border: 1px solid #2c3740 !important;
+  border-radius: 6px !important;
+  padding: 8px 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 34px !important;
+  overflow: hidden !important;
+}
+
+.cs-pop-pen-preview,
+.cs-pop-hl-preview {
+  width: 90% !important;
+  border-radius: 4px !important;
+  transition: all 0.1s ease !important;
+}
+
+.cs-pop-text-preview {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
 }
 
 /* Sync Status Pill */
@@ -317,8 +535,8 @@
 }
 
 .cs-sync-pill.cs-status-error {
-  color: #f28b82;
-  background-color: rgba(242, 139, 130, 0.15);
+  color: #f0393c;
+  background-color: rgba(240, 57, 60, 0.15);
   cursor: help;
 }
 
@@ -353,8 +571,9 @@
   bottom: 0 !important;
   width: 100% !important;
   height: 100% !important;
-  min-height: calc(100vh - 80px) !important;
-  background-color: #171717 !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  background-color: #13181c !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
@@ -374,16 +593,18 @@
 }
 
 .classroom-stylus-overlay-panel .classroom-stylus-toolbar-bar {
-  position: relative !important;
+  position: sticky !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  height: 48px !important;
+  min-height: 48px !important;
+  height: auto !important;
   width: 100% !important;
   flex-shrink: 0 !important;
-  background-color: #202124 !important;
-  border-bottom: 1px solid #3c4043 !important;
+  background-color: #13181c !important;
+  border-bottom: 1px solid #2c3740 !important;
   z-index: 1001 !important;
+  overflow: visible !important;
 }
 
 .classroom-stylus-overlay-panel .classroom-stylus-viewer-root {
@@ -393,10 +614,12 @@
   right: 0 !important;
   bottom: 0 !important;
   width: 100% !important;
-  flex: 1 !important;
-  height: calc(100% - 48px) !important;
-  background-color: #171717 !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  background-color: #13181c !important;
   z-index: 1000 !important;
+  overflow: hidden !important;
 }
 
 .classroom-stylus-container-active {
@@ -404,45 +627,38 @@
   overflow: hidden !important;
   width: 100% !important;
   height: 100% !important;
-  min-height: calc(100vh - 80px) !important;
-  background-color: #171717 !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  background-color: #13181c !important;
 }
 
 /* Center Canvas Viewer Root */
 .classroom-stylus-viewer-root {
   position: relative !important;
   width: 100% !important;
-  height: calc(100% - 48px) !important;
-  flex: 1 !important;
-  background-color: #171717 !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  background-color: #13181c !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
   z-index: 1000 !important;
 }
 
-.classroom-stylus-toolbar-bar {
-  position: relative !important;
-  height: 48px !important;
-  width: 100% !important;
-  flex-shrink: 0 !important;
-  background-color: #202124 !important;
-  border-bottom: 1px solid #3c4043 !important;
-  z-index: 1001 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
 .cs-scroll-container {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: auto;
-  padding: 32px 16px 80px 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-sizing: border-box;
+  position: relative !important;
+  width: 100% !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  padding: 24px 16px 80px 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
 }
 
 .cs-pages-wrapper {
@@ -472,26 +688,94 @@
   pointer-events: auto;
 }
 
+/* Floating Inline Text Input */
+.cs-floating-text-input {
+  position: absolute !important;
+  z-index: 1000 !important;
+  background-color: rgba(19, 24, 28, 0.95) !important;
+  border: 1.5px solid #f0393c !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  font-family: 'Google Sans', Roboto, sans-serif !important;
+  line-height: 1.3 !important;
+  resize: none !important;
+  outline: none !important;
+  min-width: 140px !important;
+  min-height: 32px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8) !important;
+  box-sizing: border-box !important;
+}
+
 /* Floating Bottom Zoom Pill */
 .cs-bottom-zoom-pill {
   position: absolute !important;
   bottom: 24px !important;
   left: 50% !important;
   transform: translateX(-50%) !important;
-  background-color: #202124 !important;
-  border: 1px solid #3c4043 !important;
+  background-color: #1a2126 !important;
+  border: 1px solid #2c3740 !important;
   border-radius: 9999px !important;
   padding: 6px 16px !important;
   display: flex !important;
   align-items: center !important;
   gap: 12px !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8) !important;
   z-index: 99999 !important;
   font-family: 'Google Sans', Roboto, system-ui, sans-serif !important;
   color: #e8eaed !important;
   pointer-events: auto !important;
   white-space: nowrap !important;
   user-select: none !important;
+}
+
+/* Inline zoom/page controls in the top toolbar */
+.cs-zoom-inline-group {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  background-color: #13181c !important;
+  border: 1px solid #2c3740 !important;
+  border-radius: 9999px !important;
+  padding: 2px 6px !important;
+}
+
+.cs-zoom-sep-sm {
+  width: 1px !important;
+  height: 16px !important;
+  background-color: #2c3740 !important;
+  margin: 0 4px !important;
+}
+
+.cs-tb-page-label {
+  font-size: 12px !important;
+  color: #9aa0a6 !important;
+  white-space: nowrap !important;
+  min-width: 44px !important;
+  text-align: center !important;
+  user-select: none !important;
+}
+
+.cs-tb-page-label b {
+  color: #e8eaed !important;
+}
+
+.cs-tb-zoom-reset-btn {
+  background: none !important;
+  border: none !important;
+  color: #9aa0a6 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  min-width: 42px !important;
+  text-align: center !important;
+  transition: all 0.15s ease !important;
+}
+
+.cs-tb-zoom-reset-btn:hover {
+  background-color: #242c33 !important;
+  color: #e8eaed !important;
 }
 
 .cs-zoom-group {
@@ -503,7 +787,7 @@
 .cs-zoom-sep {
   width: 1px !important;
   height: 18px !important;
-  background-color: #3c4043 !important;
+  background-color: #2c3740 !important;
 }
 
 .cs-zoom-btn {
@@ -519,7 +803,7 @@
 }
 
 .cs-zoom-btn:hover {
-  background-color: #3c4043 !important;
+  background-color: #242c33 !important;
 }
 
 .cs-page-indicator {
@@ -560,6 +844,15 @@
   }
 }
 
+/* Narrow pane: allow toolbar to scroll horizontally rather than clip */
+.classroom-stylus-toolbar-bar {
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+}
+.classroom-stylus-toolbar-bar::-webkit-scrollbar {
+  display: none !important;
+}
+
 /* Loader & Error UI */
 .cs-viewer-loader {
   display: flex;
@@ -573,8 +866,8 @@
 .cs-spinner-lg {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(138, 180, 248, 0.2);
-  border-top-color: #8ab4f8;
+  border: 3px solid rgba(240, 57, 60, 0.2);
+  border-top-color: #f0393c;
   border-radius: 50%;
   animation: cs-spin 0.8s linear infinite;
   margin-bottom: 16px;
@@ -596,7 +889,7 @@
 .cs-error-title {
   margin: 12px 0 6px 0;
   font-size: 16px;
-  color: #f28b82;
+  color: #f0393c;
 }
 
 .cs-error-msg {
@@ -612,7 +905,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.65);
+  background-color: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
@@ -622,13 +915,13 @@
 }
 
 .cs-modal-card {
-  background-color: #202124;
-  border: 1px solid #3c4043;
+  background-color: #1a2126;
+  border: 1px solid #2c3740;
   border-radius: 12px;
   padding: 24px;
   width: 90%;
   max-width: 460px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
   color: #e8eaed;
 }
 
@@ -636,7 +929,7 @@
   margin: 0 0 12px 0;
   font-size: 18px;
   font-weight: 500;
-  color: #f28b82;
+  color: #f0393c;
 }
 
 .cs-modal-body {
@@ -663,21 +956,22 @@
 }
 
 .cs-modal-cancel {
-  background-color: #2d2e30;
+  background-color: #13181c;
   color: #e8eaed;
+  border: 1px solid #2c3740;
 }
 
 .cs-modal-cancel:hover {
-  background-color: #3c4043;
+  background-color: #242c33;
 }
 
 .cs-modal-confirm {
-  background-color: #d93025;
+  background-color: #f0393c;
   color: #ffffff;
 }
 
 .cs-modal-confirm:hover {
-  background-color: #b3261e;
+  background-color: #d62b2e;
 }
 
 /* Floating Toasts */
@@ -690,18 +984,18 @@
   font-family: 'Google Sans', Roboto, system-ui, sans-serif;
   font-size: 14px;
   color: #ffffff;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
   z-index: 999999;
   transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .cs-toast-info {
-  background-color: #202124;
-  border: 1px solid #3c4043;
+  background-color: #1a2126;
+  border: 1px solid #2c3740;
 }
 
 .cs-toast-error {
-  background-color: #d93025;
+  background-color: #f0393c;
 }
 
 .cs-toast.fade-out {

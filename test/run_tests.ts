@@ -5,7 +5,7 @@ import { decodeClassroomParam } from '../src/content/detector';
 import { Stroke, StrokePoint } from '../src/types';
 
 async function runTestSuite() {
-  console.log('🧪 Starting Classroom Stylus Verification Test Suite...\n');
+  console.log('🧪 Starting RedPen Classroom Verification Test Suite...\n');
   let passed = 0;
   let failed = 0;
 

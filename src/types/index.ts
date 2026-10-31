@@ -1,4 +1,4 @@
-export type ToolType = 'pen' | 'highlighter' | 'eraser';
+export type ToolType = 'pen' | 'highlighter' | 'eraser' | 'text';
 
 export interface StrokePoint {
   x: number;
@@ -23,6 +23,8 @@ export interface Stroke {
   opacity: number;
   bbox: BoundingBox;
   timestamp: number;
+  text?: string;
+  fontSize?: number;
 }
 
 export interface PageStrokesMap {

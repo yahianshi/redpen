@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const savePrefsBtn = document.getElementById('savePrefsBtn') as HTMLButtonElement;
   const prefsSaveMsg = document.getElementById('prefsSaveMsg')!;
 
-  let selectedColor = '#ef4444';
+  let selectedColor = '#f0393c';
 
   // Load existing settings
   const settings = await storage.getSettings();
@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   penOnlyCheckbox.checked = settings.penOnlyMode ?? true;
   autosaveDelayInput.value = String(settings.autosaveDelayMs || 2500);
 
-  selectedColor = settings.defaultPenColor || '#ef4444';
+  selectedColor = settings.defaultPenColor || '#f0393c';
   updateColorDots(selectedColor);
 
   // Check auth status
@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Color selection
   colorDots.forEach((dot) => {
     dot.addEventListener('click', () => {
-      selectedColor = dot.dataset.color || '#ef4444';
+      selectedColor = dot.dataset.color || '#f0393c';
       updateColorDots(selectedColor);
     });
   });

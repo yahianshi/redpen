@@ -7,7 +7,7 @@ const STORE_SESSION_STROKES = 'sessionStrokes';
 
 export const DEFAULT_SETTINGS: UserSettings = {
   oauthClientId: '',
-  defaultPenColor: '#ef4444', // Red default for teacher grading
+  defaultPenColor: '#f0393c', // RedPen brand red
   defaultPenThickness: 3,
   defaultHighlighterColor: '#facc15', // Yellow
   defaultHighlighterThickness: 16,
@@ -66,7 +66,7 @@ class StorageService {
         tx.onerror = () => reject(tx.error);
       });
     } catch (err) {
-      console.warn('[ClassroomStylus] Failed to persist clean PDF in IndexedDB, using memory:', err);
+      console.warn('[RedPen] Failed to persist clean PDF in IndexedDB, using memory:', err);
     }
   }
 
@@ -161,7 +161,7 @@ class StorageService {
         tx.onerror = () => reject(tx.error);
       });
     } catch (err) {
-      console.warn('[ClassroomStylus] Failed to persist strokes in IndexedDB, keeping in memory:', err);
+      console.warn('[RedPen] Failed to persist strokes in IndexedDB, keeping in memory:', err);
     }
   }
 
@@ -177,7 +177,7 @@ class StorageService {
         tx.onerror = () => reject(tx.error);
       });
     } catch (err) {
-      console.warn('[ClassroomStylus] Error clearing session strokes:', err);
+      console.warn('[RedPen] Error clearing session strokes:', err);
     }
   }
 

@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const fileId = params.get('fileId') || '';
   const fileName = params.get('fileName') || 'Document.pdf';
 
-  document.title = `✏️ Grading - ${fileName}`;
+  document.title = `RedPen - ${fileName}`;
 
   const toolbarHost = document.getElementById('toolbarHost')!;
   const canvasHost = document.getElementById('canvasHost')!;
@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     penThickness: settings.defaultPenThickness,
     highlighterColor: settings.defaultHighlighterColor,
     highlighterThickness: settings.defaultHighlighterThickness,
+    textSize: 24,
     onStrokeAdded: () => markDirtyAndDebounceSave(),
     onStrokeErased: () => markDirtyAndDebounceSave(),
     onHistoryChange: (canUndo, canRedo) => toolbar.setHistoryState(canUndo, canRedo),
@@ -58,6 +59,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     onPenColorChange: (color) => stylusEngine.updateOptions({ penColor: color }),
     onPenThicknessChange: (thick) => stylusEngine.updateOptions({ penThickness: thick }),
     onHighlighterColorChange: (color) => stylusEngine.updateOptions({ highlighterColor: color }),
+    onHighlighterThicknessChange: (thick) => stylusEngine.updateOptions({ highlighterThickness: thick }),
+    onTextSizeChange: (size) => stylusEngine.updateOptions({ textSize: size }),
     onUndo: () => {
       const result = stylusEngine.undo(canvasViewer.getStrokes());
       if (result) {
@@ -112,7 +115,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     onClose: () => {
       window.close();
     },
+    onZoomIn: () => canvasViewer.zoomIn(),
+    onZoomOut: () => canvasViewer.zoomOut(),
+    onZoomReset: () => canvasViewer.resetZoom(),
+    onPrevPage: () => canvasViewer.prevPage(),
+    onNextPage: () => canvasViewer.nextPage(),
+    onScrollHalfPageDown: () => canvasViewer.scrollHalfPageDown(),
+    onScrollHalfPageUp: () => canvasViewer.scrollHalfPageUp(),
   }, { showDedicatedTabButton: false });
+
+  canvasViewer.setPageZoomCallback((page, total, zoom) => {
+    toolbar.updatePageZoomState(page, total, zoom);
+  });
 
   toolbarHost.appendChild(toolbar.getElement());
 
@@ -195,8 +209,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (!resp.success) throw new Error(resp.error || 'Upload failed');
 
-      sessionData.isDirty = false;
-      await storage.saveSessionStrokes(sessionData);
+      if (sessionData) {
+        sessionData.isDirty = false;
+        await storage.saveSessionStrokes(sessionData);
+      }
       toolbar.setSyncStatus('saved');
     } catch (err: any) {
       toolbar.setSyncStatus('error', err.message);

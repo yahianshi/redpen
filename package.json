@@ -1,7 +1,7 @@
 {
-  "name": "classroom-stylus-pdf-grading",
+  "name": "redpen-classroom",
   "version": "1.0.0",
-  "description": "In-page PDF stylus grading canvas for Google Classroom with erasable strokes, debounced autosave flattening to Google Drive, and restore original.",
+  "description": "RedPen - In-page PDF stylus grading canvas for Google Classroom with live erasable strokes, Google Drive autosave flattening, and one-click restore original.",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",

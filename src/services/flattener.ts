@@ -66,6 +66,22 @@ export class PdfFlattener {
         const color = parseColor(stroke.color);
         const opacity = stroke.tool === 'highlighter' ? 0.35 : (stroke.opacity ?? 1.0);
 
+        if (stroke.tool === 'text' && stroke.text) {
+          const pt = stroke.points[0];
+          const fontSize = stroke.fontSize || 16;
+          const lines = stroke.text.split('\n');
+          lines.forEach((line, lIdx) => {
+            page.drawText(line, {
+              x: pt.x,
+              y: pageHeight - pt.y - (lIdx + 1) * fontSize * 1.15,
+              size: fontSize,
+              color,
+              opacity,
+            });
+          });
+          continue;
+        }
+
         if (stroke.points.length === 1) {
           // Single dot
           const pt = stroke.points[0];

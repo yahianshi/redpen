@@ -7,6 +7,7 @@ export interface StylusEngineOptions {
   penThickness: number;
   highlighterColor: string;
   highlighterThickness: number;
+  textSize?: number;
   onStrokeAdded?: (pageIndex: number, stroke: Stroke) => void;
   onStrokeErased?: (pageIndex: number, erasedStroke: Stroke) => void;
   onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void;
@@ -47,6 +48,28 @@ export class StylusEngine {
 
   private notifyHistory() {
     this.options.onHistoryChange?.(this.canUndo(), this.canRedo());
+  }
+
+  recordStrokeAdded(pageIndex: number, stroke: Stroke) {
+    this.undoStack.push({
+      type: 'add',
+      pageIndex,
+      stroke,
+    });
+    this.redoStack = [];
+    this.notifyHistory();
+    this.options.onStrokeAdded?.(pageIndex, stroke);
+  }
+
+  recordStrokeErased(pageIndex: number, stroke: Stroke) {
+    this.undoStack.push({
+      type: 'erase',
+      pageIndex,
+      stroke,
+    });
+    this.redoStack = [];
+    this.notifyHistory();
+    this.options.onStrokeErased?.(pageIndex, stroke);
   }
 
   /**
@@ -95,6 +118,10 @@ export class StylusEngine {
     const pt = this.getCanvasPoint(e, canvas, zoom);
 
     if (this.options.activeTool === 'eraser') {
+      // Only erase on active press (stylus touching screen or mouse click)
+      if (e.buttons === 0 && e.pressure === 0 && e.pointerType === 'pen') {
+        return { strokeStarted: false };
+      }
       const erased = this.checkAndErase(pt, pageIndex, pageStrokes, zoom);
       return { strokeStarted: false, erasedStroke: erased };
     }
@@ -136,7 +163,12 @@ export class StylusEngine {
     const events = coalescedEvents.length > 0 ? coalescedEvents : [e];
 
     if (this.options.activeTool === 'eraser') {
+      // Only erase when pointer is actively pressed down (clicked or stylus touching screen)
+      if (e.buttons === 0 && e.pressure === 0) {
+        return {};
+      }
       for (const ev of events) {
+        if (ev.buttons === 0 && ev.pressure === 0) continue;
         const pt = this.getCanvasPoint(ev, canvas, zoom);
         const erased = this.checkAndErase(pt, pageIndex, pageStrokes, zoom);
         if (erased) {
@@ -238,7 +270,7 @@ export class StylusEngine {
     return undefined;
   }
 
-  private isPointNearBBox(pt: StrokePoint, bbox: BoundingBox, threshold: number): boolean {
+  isPointNearBBox(pt: StrokePoint, bbox: BoundingBox, threshold: number): boolean {
     return (
       pt.x >= bbox.minX - threshold &&
       pt.x <= bbox.maxX + threshold &&
@@ -252,6 +284,10 @@ export class StylusEngine {
     stroke: Stroke,
     eraserRadius: number
   ): boolean {
+    if (stroke.tool === 'text') {
+      return this.isPointNearBBox(pt, stroke.bbox, eraserRadius);
+    }
+
     if (stroke.points.length === 1) {
       const p = stroke.points[0];
       const dist = Math.hypot(pt.x - p.x, pt.y - p.y);
@@ -376,6 +412,20 @@ export class StylusEngine {
       ctx.fillStyle = stroke.color;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
+
+      if (stroke.tool === 'text' && stroke.text) {
+        const pt = stroke.points[0];
+        const fontSize = (stroke.fontSize || 16) * zoom;
+        ctx.font = `bold ${fontSize}px 'Google Sans', Roboto, sans-serif`;
+        ctx.fillStyle = stroke.color;
+        ctx.textBaseline = 'top';
+        const lines = stroke.text.split('\n');
+        lines.forEach((line, lineIdx) => {
+          ctx.fillText(line, pt.x * zoom, pt.y * zoom + lineIdx * fontSize * 1.25);
+        });
+        ctx.restore();
+        continue;
+      }
 
       if (stroke.points.length === 1) {
         const pt = stroke.points[0];

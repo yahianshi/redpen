@@ -6,7 +6,7 @@ const ROOT_DIR = process.cwd();
 const DIST_DIR = path.resolve(ROOT_DIR, 'dist');
 
 async function runBuild() {
-  console.log('🚀 Starting Classroom Stylus Extension Build...');
+  console.log('🚀 Starting RedPen Classroom Extension Build...');
 
   // Ensure clean dist directory
   if (fs.existsSync(DIST_DIR)) {

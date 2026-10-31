@@ -101,7 +101,7 @@ export class DriveService {
     });
 
     if (!res.ok) {
-      console.warn(`[ClassroomStylus] Failed to pin revision ${revisionId}:`, await res.text());
+      console.warn(`[RedPen] Failed to pin revision ${revisionId}:`, await res.text());
     }
   }
 
@@ -140,7 +140,7 @@ export class DriveService {
         }
       }
     } catch (e) {
-      console.warn('[ClassroomStylus] List by userId failed, trying get:', e);
+      console.warn('[RedPen] List by userId failed, trying get:', e);
     }
 
     // 2. Second attempt: get by ID
@@ -151,7 +151,7 @@ export class DriveService {
         return await res.json();
       }
     } catch (e) {
-      console.warn('[ClassroomStylus] Get by submissionId failed, trying full list:', e);
+      console.warn('[RedPen] Get by submissionId failed, trying full list:', e);
     }
 
     // 3. Third attempt: list all submissions in coursework and match
@@ -166,7 +166,7 @@ export class DriveService {
         if (submissions.length > 0) return submissions[0];
       }
     } catch (e) {
-      console.warn('[ClassroomStylus] Coursework submissions list failed:', e);
+      console.warn('[RedPen] Coursework submissions list failed:', e);
     }
 
     throw new Error('Could not find student submission in Google Classroom API');
@@ -191,7 +191,7 @@ export class DriveService {
         }
       }
     } catch (e) {
-      console.warn('[ClassroomStylus] Exact search error:', e);
+      console.warn('[RedPen] Exact search error:', e);
     }
 
     // 2. Try flexible name contains match for PDFs
@@ -206,7 +206,7 @@ export class DriveService {
         }
       }
     } catch (e) {
-      console.warn('[ClassroomStylus] Contains search error:', e);
+      console.warn('[RedPen] Contains search error:', e);
     }
 
     return undefined;

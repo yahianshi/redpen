@@ -1,7 +1,7 @@
 // src/services/storage.ts
 var e = "cleanPdfs", t = "sessionStrokes", n = {
 	oauthClientId: "",
-	defaultPenColor: "#ef4444",
+	defaultPenColor: "#f0393c",
 	defaultPenThickness: 3,
 	defaultHighlighterColor: "#facc15",
 	defaultHighlighterThickness: 16,
@@ -37,7 +37,7 @@ var e = "cleanPdfs", t = "sessionStrokes", n = {
 				i.oncomplete = () => e(), i.onerror = () => t(i.error);
 			});
 		} catch (e) {
-			console.warn("[ClassroomStylus] Failed to persist clean PDF in IndexedDB, using memory:", e);
+			console.warn("[RedPen] Failed to persist clean PDF in IndexedDB, using memory:", e);
 		}
 	}
 	async getCleanBasePdf(t) {
@@ -100,7 +100,7 @@ var e = "cleanPdfs", t = "sessionStrokes", n = {
 				n.oncomplete = () => e(), n.onerror = () => t(n.error);
 			});
 		} catch (e) {
-			console.warn("[ClassroomStylus] Failed to persist strokes in IndexedDB, keeping in memory:", e);
+			console.warn("[RedPen] Failed to persist strokes in IndexedDB, keeping in memory:", e);
 		}
 	}
 	async clearSessionStrokes(e) {
@@ -111,7 +111,7 @@ var e = "cleanPdfs", t = "sessionStrokes", n = {
 				n.oncomplete = () => e(), n.onerror = () => t(n.error);
 			});
 		} catch (e) {
-			console.warn("[ClassroomStylus] Error clearing session strokes:", e);
+			console.warn("[RedPen] Error clearing session strokes:", e);
 		}
 	}
 	async getSettings() {
@@ -249,7 +249,7 @@ var e = "cleanPdfs", t = "sessionStrokes", n = {
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ keepForever: !0 })
 		});
-		r.ok || console.warn(`[ClassroomStylus] Failed to pin revision ${t}:`, await r.text());
+		r.ok || console.warn(`[RedPen] Failed to pin revision ${t}:`, await r.text());
 	}
 	static async downloadRevision(e, t) {
 		let n = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(e)}/revisions/${encodeURIComponent(t)}?alt=media&supportsAllDrives=true`, r = await this.authFetch(n);
@@ -267,13 +267,13 @@ var e = "cleanPdfs", t = "sessionStrokes", n = {
 				if (e.studentSubmissions && e.studentSubmissions.length > 0) return e.studentSubmissions[0];
 			}
 		} catch (e) {
-			console.warn("[ClassroomStylus] List by userId failed, trying get:", e);
+			console.warn("[RedPen] List by userId failed, trying get:", e);
 		}
 		try {
 			let r = `https://classroom.googleapis.com/v1/courses/${encodeURIComponent(e)}/courseWork/${encodeURIComponent(t)}/studentSubmissions/${encodeURIComponent(n)}`, i = await this.authFetch(r);
 			if (i.ok) return await i.json();
 		} catch (e) {
-			console.warn("[ClassroomStylus] Get by submissionId failed, trying full list:", e);
+			console.warn("[RedPen] Get by submissionId failed, trying full list:", e);
 		}
 		try {
 			let r = `https://classroom.googleapis.com/v1/courses/${encodeURIComponent(e)}/courseWork/${encodeURIComponent(t)}/studentSubmissions?pageSize=50`, i = await this.authFetch(r);
@@ -283,7 +283,7 @@ var e = "cleanPdfs", t = "sessionStrokes", n = {
 				if (e.length > 0) return e[0];
 			}
 		} catch (e) {
-			console.warn("[ClassroomStylus] Coursework submissions list failed:", e);
+			console.warn("[RedPen] Coursework submissions list failed:", e);
 		}
 		throw Error("Could not find student submission in Google Classroom API");
 	}
@@ -296,7 +296,7 @@ var e = "cleanPdfs", t = "sessionStrokes", n = {
 				if (e.files && e.files.length > 0) return e.files[0].id;
 			}
 		} catch (e) {
-			console.warn("[ClassroomStylus] Exact search error:", e);
+			console.warn("[RedPen] Exact search error:", e);
 		}
 		try {
 			let e = `https://www.googleapis.com/drive/v3/files?q=${`name contains '${encodeURIComponent(n)}' and mimeType = 'application/pdf' and trashed = false`}&orderBy=modifiedTime desc&pageSize=5&supportsAllDrives=true`, t = await this.authFetch(e);
@@ -305,12 +305,12 @@ var e = "cleanPdfs", t = "sessionStrokes", n = {
 				if (e.files && e.files.length > 0) return e.files[0].id;
 			}
 		} catch (e) {
-			console.warn("[ClassroomStylus] Contains search error:", e);
+			console.warn("[RedPen] Contains search error:", e);
 		}
 	}
 };
 // src/background/background.ts
-console.log("[ClassroomStylus] Background service worker started.");
+console.log("[RedPen] Background service worker started.");
 function c(e) {
 	let t = "", n = new Uint8Array(e), r = n.byteLength;
 	for (let e = 0; e < r; e++) t += String.fromCharCode(n[e]);
@@ -322,7 +322,7 @@ function l(e) {
 	return r;
 }
 chrome.runtime.onMessage.addListener((e, t, n) => (u(e).then((e) => n(e)).catch((e) => {
-	console.error("[ClassroomStylus Background] Error processing message:", e), n({
+	console.error("[RedPen Background] Error processing message:", e), n({
 		success: !1,
 		error: e?.message || "Unknown background processing error"
 	});

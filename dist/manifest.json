@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Classroom Stylus - PDF Grading Canvas",
+  "name": "RedPen - Classroom PDF Grading",
+  "short_name": "RedPen",
   "version": "1.0.0",
-  "description": "In-page PDF stylus grading canvas for Google Classroom with live erasable session strokes, Google Drive autosave flattening, and one-click restore original.",
+  "description": "RedPen: In-page PDF stylus grading canvas for Google Classroom with live erasable strokes, Google Drive autosave flattening, and one-click restore original.",
   "permissions": [
     "identity",
     "storage",
@@ -39,6 +40,7 @@
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
       "48": "icons/icon-48.png",
       "128": "icons/icon-128.png"
     }
@@ -46,6 +48,7 @@
   "options_page": "options.html",
   "icons": {
     "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
