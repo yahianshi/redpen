@@ -53,6 +53,7 @@
     {
       "resources": [
         "pdf.worker.min.mjs",
+        "annotator.html",
         "icons/*"
       ],
       "matches": [

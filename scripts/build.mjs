@@ -67,6 +67,7 @@ async function runBuild() {
         input: {
           popup: path.resolve(ROOT_DIR, 'src/popup/popup.html'),
           options: path.resolve(ROOT_DIR, 'src/options/options.html'),
+          annotator: path.resolve(ROOT_DIR, 'src/annotator/annotator.html'),
         },
         output: {
           entryFileNames: '[name].js',
@@ -77,7 +78,7 @@ async function runBuild() {
     },
   });
 
-  // Move popup.html and options.html to root of dist if nested
+  // Move popup.html, options.html, and annotator.html to root of dist if nested
   const nestedPopup = path.resolve(DIST_DIR, 'src/popup/popup.html');
   const targetPopup = path.resolve(DIST_DIR, 'popup.html');
   if (fs.existsSync(nestedPopup)) {
@@ -94,6 +95,15 @@ async function runBuild() {
     let optionsHtml = fs.readFileSync(targetOptions, 'utf-8');
     optionsHtml = optionsHtml.replaceAll('../../', './');
     fs.writeFileSync(targetOptions, optionsHtml);
+  }
+
+  const nestedAnnotator = path.resolve(DIST_DIR, 'src/annotator/annotator.html');
+  const targetAnnotator = path.resolve(DIST_DIR, 'annotator.html');
+  if (fs.existsSync(nestedAnnotator)) {
+    fs.renameSync(nestedAnnotator, targetAnnotator);
+    let annotatorHtml = fs.readFileSync(targetAnnotator, 'utf-8');
+    annotatorHtml = annotatorHtml.replaceAll('../../', './').replaceAll('../content/', './');
+    fs.writeFileSync(targetAnnotator, annotatorHtml);
   }
 
   // Remove empty src directory in dist if any

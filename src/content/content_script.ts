@@ -20,7 +20,6 @@ function initIframeHelper() {
   function tryInjectIframeButton() {
     if (document.querySelector('.classroom-stylus-iframe-pill-btn')) return;
 
-    // Look for "Edit with" or header action bar in Drive's embedded viewer
     const buttons = document.querySelectorAll<HTMLElement>('button, [role="button"], div[role="menuitem"]');
     let editWithBtn: HTMLElement | null = null;
     for (const btn of buttons) {
@@ -73,6 +72,7 @@ class ClassroomStylusApp {
   private currentContext: ClassroomContext | null = null;
 
   private isCanvasActive: boolean = false;
+  private overlayContainer: HTMLElement | null = null;
   private topBarButton: HTMLButtonElement | null = null;
   private floatingLauncher: HTMLElement | null = null;
   private toolbar: GradingToolbar | null = null;
@@ -100,7 +100,6 @@ class ClassroomStylusApp {
       onSubmissionClosed: () => this.handleSubmissionClosed(),
     });
 
-    // Listen for messages from Drive preview iframe
     window.addEventListener('message', (event) => {
       if (event.data?.type === 'CLASSROOM_STYLUS_IFRAME_FILEID' && event.data.fileId) {
         if (this.currentContext) {
@@ -118,7 +117,6 @@ class ClassroomStylusApp {
       }
     });
 
-    // Initial injection check
     this.injectButtons();
   }
 
@@ -138,7 +136,6 @@ class ClassroomStylusApp {
     this.injectButtons();
 
     if (wasActive) {
-      // Re-enter canvas mode for next student seamlessly
       setTimeout(() => this.enterCanvasMode(), 300);
     }
   }
@@ -152,11 +149,6 @@ class ClassroomStylusApp {
     this.currentContext = null;
   }
 
-  /**
-   * Injects the Grade with Stylus button into:
-   * 1. Classroom's top sub-header (next to filename / student switcher / Return button)
-   * 2. A sleek floating pill launcher right at the top of the center preview
-   */
   private injectButtons() {
     this.injectTopBarButton();
     this.injectFloatingLauncher();
@@ -185,7 +177,6 @@ class ClassroomStylusApp {
       this.toggleCanvasMode();
     });
 
-    // Place next to filename link or before the Return button
     const returnBtn = this.findReturnButton(targetSubHeader);
     if (returnBtn && returnBtn.parentElement) {
       returnBtn.parentElement.insertBefore(btn, returnBtn);
@@ -232,19 +223,16 @@ class ClassroomStylusApp {
   }
 
   private findClassroomTopSubHeader(): HTMLElement | null {
-    // 1. Check for Return button container
     const returnBtn = this.findReturnButton();
     if (returnBtn && returnBtn.parentElement) {
       return returnBtn.parentElement;
     }
 
-    // 2. Check for student switcher arrows
     const arrows = document.querySelectorAll('button[aria-label*="next" i], button[aria-label*="previous" i]');
     if (arrows.length > 0 && arrows[0].parentElement) {
       return arrows[0].parentElement;
     }
 
-    // 3. Fallback: header elements containing .pdf title
     const headers = document.querySelectorAll<HTMLElement>('header, [role="banner"], [role="toolbar"], div[class*="header" i]');
     for (const h of headers) {
       if (h.textContent?.includes('.pdf') || h.textContent?.includes('Quiz') || h.textContent?.includes('Return')) {
@@ -275,45 +263,14 @@ class ClassroomStylusApp {
     }
   }
 
+  /**
+   * Overrides the Google Drive center preview window and injects our custom Stylus Canvas.
+   */
   public async enterCanvasMode(fileIdOverride?: string) {
-    if (!this.currentContext) {
-      this.detector?.attemptExtractContext(true);
-      this.currentContext = this.detector?.getCurrentContext() || null;
-    }
-
-    // 1. Resolve fileId
-    let fileId = fileIdOverride || this.currentContext?.fileId;
-    if (!fileId) {
-      fileId = this.detector?.findGoogleDriveFileId();
-    }
-
-    if (!fileId && this.currentContext?.courseId && this.currentContext?.courseWorkId && this.currentContext?.submissionId) {
-      fileId = await this.resolveFileIdFromClassroomApi(
-        this.currentContext.courseId,
-        this.currentContext.courseWorkId,
-        this.currentContext.submissionId
-      );
-    }
-
-    if (fileId && this.currentContext) {
-      this.currentContext.fileId = fileId;
-    }
-
-    if (!fileId) {
-      this.showToast('Could not extract Google Drive fileId. Make sure the PDF is loaded in preview.', 'error');
-      return;
-    }
-
-    // 2. Locate center preview container
-    const centerPreview = this.findCenterPreviewArea();
-    if (!centerPreview) {
-      this.showToast('Could not locate Classroom center preview area.', 'error');
-      return;
-    }
-
+    console.log('[ClassroomStylus] Entering Canvas Mode...');
     this.isCanvasActive = true;
 
-    // Update button states
+    // 1. Immediately update button states
     if (this.topBarButton) {
       this.topBarButton.classList.add('active');
       this.topBarButton.querySelector('.cs-btn-text')!.textContent = '✓ Grading Active';
@@ -322,29 +279,60 @@ class ClassroomStylusApp {
       this.floatingLauncher.style.display = 'none';
     }
 
-    // 3. Hide native Google Drive preview iframe(s)
+    // 2. Immediately hide Google Drive preview iframes
     const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe');
     iframes.forEach((iframe) => {
       iframe.style.setProperty('display', 'none', 'important');
       iframe.setAttribute('data-cs-hidden', 'true');
     });
 
-    centerPreview.classList.add('classroom-stylus-container-active');
+    // 3. Dynamically measure Classroom layout bounds
+    // Left boundary: right edge of left navigation
+    const leftNav = document.querySelector<HTMLElement>('nav, [role="navigation"]');
+    const leftPx = leftNav ? Math.max(0, leftNav.getBoundingClientRect().right) : 72;
 
-    // 4. Create and mount Toolbar
+    // Right boundary: left edge of right grading sidebar ("Grade and feedback")
+    let rightPx = 320;
+    const allDivs = document.querySelectorAll<HTMLElement>('div, aside');
+    for (const el of allDivs) {
+      if (el.clientWidth > 240 && el.clientWidth < 400 && el.textContent?.includes('Grade and feedback')) {
+        rightPx = Math.max(0, window.innerWidth - el.getBoundingClientRect().left);
+        break;
+      }
+    }
+
+    // Top boundary: bottom edge of top header
+    const topHeader = this.findClassroomTopSubHeader() || document.querySelector<HTMLElement>('header, [role="banner"], [role="toolbar"]');
+    const topPx = topHeader ? Math.max(0, topHeader.getBoundingClientRect().bottom) : 56;
+
+    // 4. Create and mount our center overlay container
+    if (!this.overlayContainer) {
+      this.overlayContainer = document.createElement('div');
+      this.overlayContainer.className = 'classroom-stylus-overlay-panel';
+      this.overlayContainer.style.cssText = `
+        position: fixed !important;
+        top: ${topPx}px !important;
+        left: ${leftPx}px !important;
+        right: ${rightPx}px !important;
+        bottom: 0px !important;
+        z-index: 9999 !important;
+        background-color: #171717 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+      `;
+      document.body.appendChild(this.overlayContainer);
+    }
+
+    this.overlayContainer.innerHTML = '';
+
+    // 5. Mount Toolbar
     this.toolbar = new GradingToolbar({
-      onToolSelect: (tool) => {
-        this.stylusEngine?.updateOptions({ activeTool: tool });
-      },
-      onPenColorChange: (color) => {
-        this.stylusEngine?.updateOptions({ penColor: color });
-      },
-      onPenThicknessChange: (thickness) => {
-        this.stylusEngine?.updateOptions({ penThickness: thickness });
-      },
-      onHighlighterColorChange: (color) => {
-        this.stylusEngine?.updateOptions({ highlighterColor: color });
-      },
+      onToolSelect: (tool) => this.stylusEngine?.updateOptions({ activeTool: tool }),
+      onPenColorChange: (color) => this.stylusEngine?.updateOptions({ penColor: color }),
+      onPenThicknessChange: (thick) => this.stylusEngine?.updateOptions({ penThickness: thick }),
+      onHighlighterColorChange: (color) => this.stylusEngine?.updateOptions({ highlighterColor: color }),
       onUndo: () => {
         if (!this.canvasViewer || !this.stylusEngine) return;
         const result = this.stylusEngine.undo(this.canvasViewer.getStrokes());
@@ -361,20 +349,26 @@ class ClassroomStylusApp {
           this.markDirtyAndDebounceSave();
         }
       },
-      onTogglePenOnly: (penOnly) => {
-        this.stylusEngine?.updateOptions({ penOnlyMode: penOnly });
+      onTogglePenOnly: (penOnly) => this.stylusEngine?.updateOptions({ penOnlyMode: penOnly }),
+      onRestoreOriginal: () => this.restoreOriginalSubmission(),
+      onOpenDedicatedTab: () => {
+        const fId = this.currentContext?.fileId || fileIdOverride;
+        if (fId) {
+          chrome.runtime.sendMessage({
+            type: 'OPEN_ANNOTATOR_TAB',
+            fileId: fId,
+            fileName: this.currentContext?.fileName || this.extractActiveFileName(),
+          });
+        } else {
+          this.showToast('Please wait for document to load before opening dedicated tab.', 'info');
+        }
       },
-      onRestoreOriginal: () => {
-        this.restoreOriginalSubmission();
-      },
-      onClose: () => {
-        this.exitCanvasMode();
-      },
+      onClose: () => this.exitCanvasMode(),
     });
 
-    centerPreview.appendChild(this.toolbar.getElement());
+    this.overlayContainer.appendChild(this.toolbar.getElement());
 
-    // 5. Load settings & initialize Stylus Engine
+    // 6. Initialize Stylus Engine and Canvas Viewer
     const settings = await storage.getSettings();
 
     this.stylusEngine = new StylusEngine({
@@ -389,37 +383,115 @@ class ClassroomStylusApp {
       onHistoryChange: (canUndo, canRedo) => this.toolbar?.setHistoryState(canUndo, canRedo),
     });
 
-    // 6. Initialize Canvas Viewer
     this.canvasViewer = new CanvasViewer(this.stylusEngine, {
       onStrokeDrawn: () => this.markDirtyAndDebounceSave(),
       onStrokeErased: () => this.markDirtyAndDebounceSave(),
     });
 
-    centerPreview.appendChild(this.canvasViewer.getElement());
+    this.overlayContainer.appendChild(this.canvasViewer.getElement());
 
-    // 7. Load PDF and existing session strokes
+    // 7. Resolve Google Drive fileId with layered fallbacks
+    let fileId = fileIdOverride || this.currentContext?.fileId;
+    if (!fileId) {
+      fileId = this.detector?.findGoogleDriveFileId();
+    }
+
+    const detectedFileName = this.extractActiveFileName();
+    if (detectedFileName && this.currentContext) {
+      this.currentContext.fileName = detectedFileName;
+    }
+
+    // Fallback: Drive search by filename
+    if (!fileId && detectedFileName) {
+      try {
+        const searchResp: ExtensionResponse<any> = await this.sendMessage({
+          type: 'DRIVE_SEARCH_NAME',
+          fileName: detectedFileName,
+        });
+        if (searchResp.success && searchResp.data?.fileId) {
+          fileId = searchResp.data.fileId;
+        }
+      } catch (e) {
+        console.warn('[ClassroomStylus] File search fallback error:', e);
+      }
+    }
+
+    // Fallback: Classroom API with decoded IDs
+    if (!fileId && this.currentContext?.courseId && this.currentContext?.courseWorkId && this.currentContext?.submissionId) {
+      try {
+        fileId = await this.resolveFileIdFromClassroomApi(
+          this.currentContext.courseId,
+          this.currentContext.courseWorkId,
+          this.currentContext.submissionId
+        );
+      } catch (e) {
+        console.warn('[ClassroomStylus] Classroom API resolution error:', e);
+      }
+    }
+
+    if (fileId && this.currentContext) {
+      this.currentContext.fileId = fileId;
+    }
+
+    if (!fileId) {
+      // In-canvas interactive prompt if fileId couldn't be auto-resolved
+      this.showInCanvasFilePrompt(detectedFileName || 'Student PDF');
+      return;
+    }
+
     await this.loadDocumentAndSession(fileId);
   }
 
-  private findCenterPreviewArea(): HTMLElement {
-    // Look for iframe parent or main role
-    const iframe = document.querySelector<HTMLIFrameElement>('iframe');
-    if (iframe && iframe.parentElement) {
-      const container = iframe.closest<HTMLElement>('[role="main"], main, div[class*="preview"], div[class*="container"]') || iframe.parentElement;
-      return container;
+  private extractActiveFileName(): string | undefined {
+    // Check elements for .pdf filenames
+    const textNodes = document.querySelectorAll<HTMLElement>('[title*=".pdf"], [aria-label*=".pdf"], a, span, div');
+    for (const el of textNodes) {
+      const titleAttr = el.getAttribute('title') || el.getAttribute('aria-label') || '';
+      const m1 = titleAttr.match(/\b([a-zA-Z0-9_\- ]+\.pdf)\b/i);
+      if (m1) return m1[1].trim();
+
+      const text = el.textContent || '';
+      const m2 = text.match(/\b([a-zA-Z0-9_\- ]+\.pdf)\b/i);
+      if (m2 && m2[1].length < 60) return m2[1].trim();
     }
+    return undefined;
+  }
 
-    const mainEl = document.querySelector<HTMLElement>('[role="main"], main');
-    if (mainEl) return mainEl;
+  private showInCanvasFilePrompt(defaultName: string) {
+    if (!this.canvasViewer) return;
+    const scrollContainer = this.canvasViewer.getScrollContainer();
+    scrollContainer.innerHTML = `
+      <div class="cs-error-card" style="max-width: 520px; margin: 60px auto;">
+        <svg class="cs-icon-lg" viewBox="0 0 24 24" fill="none" stroke="#8ab4f8" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <h3 class="cs-error-title" style="color: #e8eaed; font-size: 18px;">Locating Google Drive File</h3>
+        <p class="cs-error-msg">Searching Google Drive for <strong>${defaultName}</strong>...</p>
+        <div style="display: flex; gap: 8px; margin-top: 16px; width: 100%;">
+          <input type="text" id="csManualDriveInput" placeholder="Paste Google Drive File Link or ID" class="form-input" style="flex: 1; padding: 10px; font-size: 13px;" />
+          <button type="button" id="csManualLoadBtn" class="btn btn-primary" style="padding: 0 16px;">Load PDF</button>
+        </div>
+      </div>
+    `;
 
-    return document.body;
+    const loadBtn = scrollContainer.querySelector<HTMLButtonElement>('#csManualLoadBtn');
+    const input = scrollContainer.querySelector<HTMLInputElement>('#csManualDriveInput');
+
+    loadBtn?.addEventListener('click', async () => {
+      const val = input?.value.trim() || '';
+      const m = val.match(/\/file\/d\/([a-zA-Z0-9_-]{20,})/) || val.match(/[?&]id=([a-zA-Z0-9_-]{20,})/) || [null, val];
+      const manualId = m[1];
+      if (manualId && /^[a-zA-Z0-9_-]{20,}$/.test(manualId)) {
+        if (this.currentContext) this.currentContext.fileId = manualId;
+        await this.loadDocumentAndSession(manualId);
+      } else {
+        this.showToast('Please enter a valid Google Drive file ID or link.', 'error');
+      }
+    });
   }
 
   private async loadDocumentAndSession(fileId: string) {
     this.toolbar?.setSyncStatus('syncing');
 
     try {
-      // 1. Get or fetch clean base PDF
       let cleanCache = await storage.getCleanBasePdf(fileId);
       if (!cleanCache) {
         const resp: ExtensionResponse<string> = await this.sendMessage({
@@ -434,7 +506,6 @@ class ClassroomStylusApp {
         const rawBytes = this.base64ToArrayBuffer(resp.data);
         this.cleanBasePdfBytes = rawBytes;
 
-        // Pin original revision 0
         try {
           const revsResp: ExtensionResponse<any[]> = await this.sendMessage({
             type: 'DRIVE_LIST_REVISIONS',
@@ -458,10 +529,8 @@ class ClassroomStylusApp {
         this.originalRevisionId = cleanCache.originalRevisionId;
       }
 
-      // 2. Load session strokes
       this.sessionData = await storage.getSessionStrokes(fileId);
 
-      // 3. Render in CanvasViewer
       if (this.canvasViewer && this.cleanBasePdfBytes) {
         await this.canvasViewer.loadPdf(this.cleanBasePdfBytes, this.sessionData.pageStrokes || {});
       }
@@ -628,17 +697,19 @@ class ClassroomStylusApp {
       this.canvasViewer = null;
     }
 
-    // Restore hidden iframes
+    if (this.overlayContainer) {
+      if (this.overlayContainer.parentNode) {
+        this.overlayContainer.parentNode.removeChild(this.overlayContainer);
+      }
+      this.overlayContainer = null;
+    }
+
+    // Restore hidden Google Drive iframes
     const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe[data-cs-hidden="true"]');
     iframes.forEach((iframe) => {
       iframe.style.display = '';
       iframe.removeAttribute('data-cs-hidden');
     });
-
-    const centerPreview = document.querySelector('.classroom-stylus-container-active');
-    if (centerPreview) {
-      centerPreview.classList.remove('classroom-stylus-container-active');
-    }
 
     this.cleanBasePdfBytes = null;
     this.sessionData = null;

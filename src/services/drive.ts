@@ -121,21 +121,76 @@ export class DriveService {
   }
 
   /**
-   * Google Classroom API fallback to retrieve submission attachment driveFile ID.
+   * Google Classroom API to retrieve submission attachment driveFile ID.
+   * Supports both userId query (?userId=...) and submissionId path.
    */
   static async getClassroomSubmission(
     courseId: string,
     courseWorkId: string,
-    submissionId: string
+    userIdOrSubId: string
   ): Promise<any> {
-    const url = `https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/courseWork/${encodeURIComponent(courseWorkId)}/studentSubmissions/${encodeURIComponent(submissionId)}`;
-    const res = await this.authFetch(url);
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Classroom API error (${res.status}): ${errText}`);
+    // 1. First attempt: list with userId parameter
+    try {
+      const listUrl = `https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/courseWork/${encodeURIComponent(courseWorkId)}/studentSubmissions?userId=${encodeURIComponent(userIdOrSubId)}`;
+      const listRes = await this.authFetch(listUrl);
+      if (listRes.ok) {
+        const data = await listRes.json();
+        if (data.studentSubmissions && data.studentSubmissions.length > 0) {
+          return data.studentSubmissions[0];
+        }
+      }
+    } catch (e) {
+      console.warn('[ClassroomStylus] List by userId failed, trying get:', e);
     }
 
-    return await res.json();
+    // 2. Second attempt: get by ID
+    try {
+      const getUrl = `https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/courseWork/${encodeURIComponent(courseWorkId)}/studentSubmissions/${encodeURIComponent(userIdOrSubId)}`;
+      const res = await this.authFetch(getUrl);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('[ClassroomStylus] Get by submissionId failed, trying full list:', e);
+    }
+
+    // 3. Third attempt: list all submissions in coursework and match
+    try {
+      const allUrl = `https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/courseWork/${encodeURIComponent(courseWorkId)}/studentSubmissions?pageSize=50`;
+      const allRes = await this.authFetch(allUrl);
+      if (allRes.ok) {
+        const allData = await allRes.json();
+        const submissions = allData.studentSubmissions || [];
+        const match = submissions.find((s: any) => s.userId === userIdOrSubId || s.id === userIdOrSubId);
+        if (match) return match;
+        if (submissions.length > 0) return submissions[0];
+      }
+    } catch (e) {
+      console.warn('[ClassroomStylus] Coursework submissions list failed:', e);
+    }
+
+    throw new Error('Could not find student submission in Google Classroom API');
+  }
+
+  /**
+   * Searches Google Drive for a file by exact name.
+   */
+  static async searchFileByName(fileName: string): Promise<string | undefined> {
+    const cleanName = fileName.replace(/'/g, "\\'");
+    const q = `name = '${encodeURIComponent(cleanName)}' and trashed = false`;
+    const url = `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=5&supportsAllDrives=true`;
+    
+    try {
+      const res = await this.authFetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.files && data.files.length > 0) {
+          return data.files[0].id;
+        }
+      }
+    } catch (e) {
+      console.warn('[ClassroomStylus] Drive file search by name error:', e);
+    }
+    return undefined;
   }
 }

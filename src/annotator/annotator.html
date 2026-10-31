@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Classroom Stylus - PDF Annotator</title>
+  <link rel="stylesheet" href="../content/styles.css" />
+  <link rel="stylesheet" href="annotator.css" />
+</head>
+<body class="annotator-body">
+  <div id="annotatorRoot" class="annotator-root">
+    <!-- Toolbar injected at top -->
+    <div id="toolbarHost" class="annotator-toolbar-host"></div>
+    <!-- Canvas container fills the rest -->
+    <div id="canvasHost" class="annotator-canvas-host"></div>
+  </div>
+
+  <script type="module" src="annotator.ts"></script>
+</body>
+</html>

@@ -84,6 +84,8 @@ export type ExtensionMessage =
   | { type: 'DRIVE_LIST_REVISIONS'; fileId: string }
   | { type: 'DRIVE_DOWNLOAD_REVISION'; fileId: string; revisionId: string }
   | { type: 'DRIVE_PIN_REVISION'; fileId: string; revisionId: string }
+  | { type: 'DRIVE_SEARCH_NAME'; fileName: string }
+  | { type: 'OPEN_ANNOTATOR_TAB'; fileId: string; fileName?: string }
   | { type: 'CLASSROOM_GET_SUBMISSION'; courseId: string; courseWorkId: string; submissionId: string };
 
 export type ExtensionResponse<T = any> =

@@ -104,6 +104,19 @@ async function handleMessage(message: ExtensionMessage): Promise<ExtensionRespon
       return { success: true, data: base64 };
     }
 
+    case 'DRIVE_SEARCH_NAME': {
+      const fileId = await DriveService.searchFileByName(message.fileName);
+      return { success: true, data: { fileId } };
+    }
+
+    case 'OPEN_ANNOTATOR_TAB': {
+      const annotatorUrl = chrome.runtime.getURL(
+        `annotator.html?fileId=${encodeURIComponent(message.fileId)}&fileName=${encodeURIComponent(message.fileName || '')}`
+      );
+      await chrome.tabs.create({ url: annotatorUrl });
+      return { success: true, data: null };
+    }
+
     case 'CLASSROOM_GET_SUBMISSION': {
       const data = await DriveService.getClassroomSubmission(
         message.courseId,

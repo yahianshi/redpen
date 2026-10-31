@@ -260,12 +260,44 @@ var e = "cleanPdfs", t = "sessionStrokes", n = {
 		return await r.arrayBuffer();
 	}
 	static async getClassroomSubmission(e, t, n) {
-		let r = `https://classroom.googleapis.com/v1/courses/${encodeURIComponent(e)}/courseWork/${encodeURIComponent(t)}/studentSubmissions/${encodeURIComponent(n)}`, i = await this.authFetch(r);
-		if (!i.ok) {
-			let e = await i.text();
-			throw Error(`Classroom API error (${i.status}): ${e}`);
+		try {
+			let r = `https://classroom.googleapis.com/v1/courses/${encodeURIComponent(e)}/courseWork/${encodeURIComponent(t)}/studentSubmissions?userId=${encodeURIComponent(n)}`, i = await this.authFetch(r);
+			if (i.ok) {
+				let e = await i.json();
+				if (e.studentSubmissions && e.studentSubmissions.length > 0) return e.studentSubmissions[0];
+			}
+		} catch (e) {
+			console.warn("[ClassroomStylus] List by userId failed, trying get:", e);
 		}
-		return await i.json();
+		try {
+			let r = `https://classroom.googleapis.com/v1/courses/${encodeURIComponent(e)}/courseWork/${encodeURIComponent(t)}/studentSubmissions/${encodeURIComponent(n)}`, i = await this.authFetch(r);
+			if (i.ok) return await i.json();
+		} catch (e) {
+			console.warn("[ClassroomStylus] Get by submissionId failed, trying full list:", e);
+		}
+		try {
+			let r = `https://classroom.googleapis.com/v1/courses/${encodeURIComponent(e)}/courseWork/${encodeURIComponent(t)}/studentSubmissions?pageSize=50`, i = await this.authFetch(r);
+			if (i.ok) {
+				let e = (await i.json()).studentSubmissions || [], t = e.find((e) => e.userId === n || e.id === n);
+				if (t) return t;
+				if (e.length > 0) return e[0];
+			}
+		} catch (e) {
+			console.warn("[ClassroomStylus] Coursework submissions list failed:", e);
+		}
+		throw Error("Could not find student submission in Google Classroom API");
+	}
+	static async searchFileByName(e) {
+		let t = e.replace(/'/g, "\\'"), n = `https://www.googleapis.com/drive/v3/files?q=${`name = '${encodeURIComponent(t)}' and trashed = false`}&orderBy=modifiedTime desc&pageSize=5&supportsAllDrives=true`;
+		try {
+			let e = await this.authFetch(n);
+			if (e.ok) {
+				let t = await e.json();
+				if (t.files && t.files.length > 0) return t.files[0].id;
+			}
+		} catch (e) {
+			console.warn("[ClassroomStylus] Drive file search by name error:", e);
+		}
 	}
 };
 // src/background/background.ts
@@ -343,6 +375,17 @@ async function u(e) {
 			success: !0,
 			data: c(await s.downloadRevision(e.fileId, e.revisionId))
 		};
+		case "DRIVE_SEARCH_NAME": return {
+			success: !0,
+			data: { fileId: await s.searchFileByName(e.fileName) }
+		};
+		case "OPEN_ANNOTATOR_TAB": {
+			let t = chrome.runtime.getURL(`annotator.html?fileId=${encodeURIComponent(e.fileId)}&fileName=${encodeURIComponent(e.fileName || "")}`);
+			return await chrome.tabs.create({ url: t }), {
+				success: !0,
+				data: null
+			};
+		}
 		case "CLASSROOM_GET_SUBMISSION": return {
 			success: !0,
 			data: await s.getClassroomSubmission(e.courseId, e.courseWorkId, e.submissionId)

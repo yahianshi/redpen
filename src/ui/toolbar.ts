@@ -9,6 +9,7 @@ export interface ToolbarEvents {
   onRedo: () => void;
   onTogglePenOnly: (penOnly: boolean) => void;
   onRestoreOriginal: () => void;
+  onOpenDedicatedTab?: () => void;
   onClose: () => void;
 }
 
@@ -151,6 +152,12 @@ export class GradingToolbar {
             <span>↺ Reset Original</span>
           </button>
 
+          <!-- Dedicated Tab Button -->
+          <button type="button" class="cs-pill-btn cs-btn-dedicated-tab" title="Open this grading canvas in its own dedicated browser tab">
+            <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <span>⛶ Dedicated Tab</span>
+          </button>
+
           <!-- Sync Status Pill -->
           <div class="cs-sync-pill cs-status-saved">
             <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -237,6 +244,12 @@ export class GradingToolbar {
       // Restore original confirmation
       if (target.closest('.cs-btn-restore')) {
         this.showRestoreConfirmation();
+        return;
+      }
+
+      // Dedicated tab
+      if (target.closest('.cs-btn-dedicated-tab')) {
+        this.events.onOpenDedicatedTab?.();
         return;
       }
 
