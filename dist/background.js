@@ -288,15 +288,24 @@ var e = "cleanPdfs", t = "sessionStrokes", n = {
 		throw Error("Could not find student submission in Google Classroom API");
 	}
 	static async searchFileByName(e) {
-		let t = e.replace(/'/g, "\\'"), n = `https://www.googleapis.com/drive/v3/files?q=${`name = '${encodeURIComponent(t)}' and trashed = false`}&orderBy=modifiedTime desc&pageSize=5&supportsAllDrives=true`;
+		let t = e.replace(/'/g, "\\'").trim(), n = t.replace(/\s*\.pdf$/i, "").trim();
 		try {
-			let e = await this.authFetch(n);
-			if (e.ok) {
-				let t = await e.json();
-				if (t.files && t.files.length > 0) return t.files[0].id;
+			let e = `https://www.googleapis.com/drive/v3/files?q=${`name = '${encodeURIComponent(t)}' and trashed = false`}&orderBy=modifiedTime desc&pageSize=5&supportsAllDrives=true`, n = await this.authFetch(e);
+			if (n.ok) {
+				let e = await n.json();
+				if (e.files && e.files.length > 0) return e.files[0].id;
 			}
 		} catch (e) {
-			console.warn("[ClassroomStylus] Drive file search by name error:", e);
+			console.warn("[ClassroomStylus] Exact search error:", e);
+		}
+		try {
+			let e = `https://www.googleapis.com/drive/v3/files?q=${`name contains '${encodeURIComponent(n)}' and mimeType = 'application/pdf' and trashed = false`}&orderBy=modifiedTime desc&pageSize=5&supportsAllDrives=true`, t = await this.authFetch(e);
+			if (t.ok) {
+				let e = await t.json();
+				if (e.files && e.files.length > 0) return e.files[0].id;
+			}
+		} catch (e) {
+			console.warn("[ClassroomStylus] Contains search error:", e);
 		}
 	}
 };

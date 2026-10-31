@@ -173,24 +173,42 @@ export class DriveService {
   }
 
   /**
-   * Searches Google Drive for a file by exact name.
+   * Searches Google Drive for a file by name (exact or substring).
    */
   static async searchFileByName(fileName: string): Promise<string | undefined> {
-    const cleanName = fileName.replace(/'/g, "\\'");
-    const q = `name = '${encodeURIComponent(cleanName)}' and trashed = false`;
-    const url = `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=5&supportsAllDrives=true`;
-    
+    const cleanName = fileName.replace(/'/g, "\\'").trim();
+    const baseName = cleanName.replace(/\s*\.pdf$/i, '').trim();
+
+    // 1. Try exact filename match first
     try {
-      const res = await this.authFetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.files && data.files.length > 0) {
-          return data.files[0].id;
+      const qExact = `name = '${encodeURIComponent(cleanName)}' and trashed = false`;
+      const url1 = `https://www.googleapis.com/drive/v3/files?q=${qExact}&orderBy=modifiedTime desc&pageSize=5&supportsAllDrives=true`;
+      const res1 = await this.authFetch(url1);
+      if (res1.ok) {
+        const data1 = await res1.json();
+        if (data1.files && data1.files.length > 0) {
+          return data1.files[0].id;
         }
       }
     } catch (e) {
-      console.warn('[ClassroomStylus] Drive file search by name error:', e);
+      console.warn('[ClassroomStylus] Exact search error:', e);
     }
+
+    // 2. Try flexible name contains match for PDFs
+    try {
+      const qContains = `name contains '${encodeURIComponent(baseName)}' and mimeType = 'application/pdf' and trashed = false`;
+      const url2 = `https://www.googleapis.com/drive/v3/files?q=${qContains}&orderBy=modifiedTime desc&pageSize=5&supportsAllDrives=true`;
+      const res2 = await this.authFetch(url2);
+      if (res2.ok) {
+        const data2 = await res2.json();
+        if (data2.files && data2.files.length > 0) {
+          return data2.files[0].id;
+        }
+      }
+    } catch (e) {
+      console.warn('[ClassroomStylus] Contains search error:', e);
+    }
+
     return undefined;
   }
 }

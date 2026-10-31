@@ -79,6 +79,16 @@ export class CanvasViewer {
     this.renderBottomZoomPill();
     this.bindZoomEvents();
     this.initIntersectionObserver();
+    this.showLoader('Loading student submission...');
+  }
+
+  showLoader(message: string = 'Loading student submission...') {
+    this.pagesWrapper.innerHTML = `
+      <div class="cs-viewer-loader">
+        <div class="cs-spinner-lg"></div>
+        <p class="cs-loader-text">${message}</p>
+      </div>
+    `;
   }
 
   getElement(): HTMLElement {

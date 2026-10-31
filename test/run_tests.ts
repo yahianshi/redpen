@@ -214,6 +214,21 @@ async function runTestSuite() {
     const iframeSrc2 = 'https://docs.google.com/viewer?id=1AbC_dEfG-1234567890abcdefghijk&embedded=true';
     const m2 = iframeSrc2.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
     assert(m2 !== null && m2[1] === '1AbC_dEfG-1234567890abcdefghijk', 'Extracted fileId from ?id= query param');
+
+    const iframeSrc3 = 'https://drive.google.com/viewerng/viewer?authuser=0&docid=1Zyx_WVUTSRQPONMLKJIHGFEDCBA';
+    const m3 = iframeSrc3.match(/[?&](?:docid|fileid|docId|fileId)=([a-zA-Z0-9_-]{20,})/i);
+    assert(m3 !== null && m3[1] === '1Zyx_WVUTSRQPONMLKJIHGFEDCBA', 'Extracted fileId from docid= query param');
+
+    const iframeSrc4 = 'https://drive.google.com/open?id=1SampleDriveFileIdLongEnough12345';
+    const m4 = iframeSrc4.match(/\/(?:open|preview)\?id=([a-zA-Z0-9_-]{20,})/i);
+    assert(m4 !== null && m4[1] === '1SampleDriveFileIdLongEnough12345', 'Extracted fileId from open?id= param');
+
+    // Test filename extraction with trailing space before extension
+    const rawName = 'math quiz 4 .pdf';
+    const fnMatch = rawName.match(/([a-zA-Z0-9_\- ]+?\s*\.pdf)/i);
+    assert(fnMatch !== null && fnMatch[1].trim() === 'math quiz 4 .pdf', 'Matched student filename with spacing before .pdf');
+    const baseClean = fnMatch![1].replace(/\s*\.pdf$/i, '').trim();
+    assert(baseClean === 'math quiz 4', 'Base filename extracted cleanly: ' + baseClean);
   } catch (e: any) {
     console.error('URL parsing test error:', e);
     failed++;

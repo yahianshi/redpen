@@ -149,7 +149,8 @@ export class ClassroomDetector {
   /**
    * Layered extraction of Google Drive fileId:
    * 1. Inspect preview iframe and DOM data attributes
-   * 2. Inspect performance timing entries
+   * 2. Inspect anchor links and attachment chips
+   * 3. Inspect performance timing entries
    */
   findGoogleDriveFileId(): string | undefined {
     // 1. Inspect iframes (Classroom embeds Drive PDF viewer iframe)
@@ -160,27 +161,28 @@ export class ClassroomDetector {
       if (match) return match;
     }
 
-    // 2. Inspect DOM data attributes
+    // 2. Inspect DOM data attributes on cards and chips
     const elementsWithDriveId = document.querySelectorAll<HTMLElement>(
-      '[data-drive-id], [data-id], [data-file-id], [data-target-id]'
+      '[data-drive-id], [data-id], [data-file-id], [data-target-id], [data-item-id]'
     );
     for (const el of elementsWithDriveId) {
       const attrVal =
         el.getAttribute('data-drive-id') ||
         el.getAttribute('data-file-id') ||
         el.getAttribute('data-id') ||
-        el.getAttribute('data-target-id');
-      if (attrVal && /^[a-zA-Z0-9_-]{25,}$/.test(attrVal)) {
+        el.getAttribute('data-target-id') ||
+        el.getAttribute('data-item-id');
+      if (attrVal && /^[a-zA-Z0-9_-]{20,}$/.test(attrVal)) {
         return attrVal;
       }
     }
 
-    // 3. Inspect anchor links (e.g. "Quiz 4.pdf ↗" title link or attachment chips)
-    const links = document.querySelectorAll<HTMLAnchorElement>('a[href]');
-    for (const link of links) {
-      const href = link.href || '';
-      if (href.includes('drive.google.com') || href.includes('docs.google.com')) {
-        const match = this.extractFileIdFromString(href);
+    // 3. Inspect anchor links (e.g. "math quiz 4 .pdf ↗" title link or attachment chips)
+    const links = document.querySelectorAll<HTMLElement>('a[href], [data-url], [data-href]');
+    for (const el of links) {
+      const target = el.getAttribute('href') || el.getAttribute('data-url') || el.getAttribute('data-href') || '';
+      if (target.includes('drive.google.com') || target.includes('docs.google.com')) {
+        const match = this.extractFileIdFromString(target);
         if (match) return match;
       }
     }
@@ -200,24 +202,28 @@ export class ClassroomDetector {
     return undefined;
   }
 
-  private extractFileIdFromString(str: string): string | undefined {
+  extractFileIdFromString(str: string): string | undefined {
     if (!str) return undefined;
 
-    // Pattern 1: /file/d/{fileId}
-    const m1 = str.match(/\/file\/d\/([a-zA-Z0-9_-]{20,})/);
+    // Pattern 1: /file/d/{fileId} or /d/{fileId}
+    const m1 = str.match(/\/(?:file\/)?d\/([a-zA-Z0-9_-]{20,})/i);
     if (m1) return m1[1];
 
-    // Pattern 2: /d/{fileId}
-    const m2 = str.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+    // Pattern 2: id={fileId}
+    const m2 = str.match(/[?&]id=([a-zA-Z0-9_-]{20,})/i);
     if (m2) return m2[1];
 
-    // Pattern 3: id={fileId}
-    const m3 = str.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
+    // Pattern 3: docid={fileId} or fileid={fileId}
+    const m3 = str.match(/[?&](?:docid|fileid|docId|fileId)=([a-zA-Z0-9_-]{20,})/i);
     if (m3) return m3[1];
 
-    // Pattern 4: docId={fileId} or fileId={fileId}
-    const m4 = str.match(/[?&](?:docId|fileId)=([a-zA-Z0-9_-]{20,})/);
+    // Pattern 4: /open?id= or /preview?id=
+    const m4 = str.match(/\/(?:open|preview)\?id=([a-zA-Z0-9_-]{20,})/i);
     if (m4) return m4[1];
+
+    // Pattern 5: viewerng/viewer?docid=
+    const m5 = str.match(/\/viewerng\/viewer\?(?:[^&]*&)*docid=([a-zA-Z0-9_-]{20,})/i);
+    if (m5) return m5[1];
 
     return undefined;
   }
@@ -252,18 +258,35 @@ export class ClassroomDetector {
     };
   }
 
-  private extractActiveFileName(): string | undefined {
+  extractActiveFileName(): string | undefined {
     // Look for filename in Classroom's dark header or preview container
     const headerTitle = document.querySelector<HTMLElement>(
-      '[role="banner"] [title*=".pdf"], header [title*=".pdf"], div[title*=".pdf"]'
+      '[role="banner"] [title*=".pdf" i], header [title*=".pdf" i], [role="banner"] [aria-label*=".pdf" i]'
     );
     if (headerTitle) {
-      return headerTitle.getAttribute('title') || headerTitle.textContent?.trim() || undefined;
+      const raw = headerTitle.getAttribute('title') || headerTitle.getAttribute('aria-label') || headerTitle.textContent || '';
+      const m = raw.match(/([a-zA-Z0-9_\- ]+?\s*\.pdf)/i);
+      if (m) return m[1].trim();
     }
 
-    const anyPdfTitle = document.querySelector<HTMLElement>('div[aria-label*=".pdf"]');
-    if (anyPdfTitle) {
-      return anyPdfTitle.getAttribute('aria-label') || undefined;
+    // Check attachment chips in right sidebar
+    const chips = document.querySelectorAll<HTMLElement>('[role="button"][title*=".pdf" i], [role="link"][title*=".pdf" i], div[title*=".pdf" i]');
+    for (const chip of chips) {
+      const raw = chip.getAttribute('title') || chip.getAttribute('aria-label') || chip.textContent || '';
+      const m = raw.match(/([a-zA-Z0-9_\- ]+?\s*\.pdf)/i);
+      if (m) return m[1].trim();
+    }
+
+    // Fallback: check short text nodes containing .pdf
+    const leaves = document.querySelectorAll<HTMLElement>('span, a, p, div');
+    for (const el of leaves) {
+      if (el.childElementCount <= 1) {
+        const text = (el.textContent || '').trim();
+        if (text.length > 4 && text.length < 80 && /\.pdf\b/i.test(text)) {
+          const m = text.match(/([a-zA-Z0-9_\- ]+?\s*\.pdf)/i);
+          if (m) return m[1].trim();
+        }
+      }
     }
 
     return undefined;

@@ -282,55 +282,95 @@ class ClassroomStylusApp {
       this.floatingLauncher.style.display = 'none';
     }
 
-    // 2. Immediately hide Google Drive preview iframes
-    const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe');
+    // 2. Resolve Google Drive fileId early (before hiding iframe or DOM elements)
+    let fileId = fileIdOverride || this.currentContext?.fileId;
+    if (!fileId) {
+      fileId = this.detector?.findGoogleDriveFileId();
+    }
+
+    const detectedFileName = this.extractActiveFileName();
+    if (detectedFileName && this.currentContext) {
+      this.currentContext.fileName = detectedFileName;
+    }
+
+    // 3. Locate the center preview container in Google Classroom
+    const iframes = Array.from(document.querySelectorAll<HTMLIFrameElement>('iframe'));
+    const driveIframe = iframes.find((f) => {
+      const src = f.src || f.getAttribute('data-src') || '';
+      return src.includes('drive.google.com') || src.includes('docs.google.com');
+    }) || iframes[0];
+
+    // Find the preview host element (parent of iframe, or Classroom's center pane)
+    let previewHost: HTMLElement | null = driveIframe?.parentElement || null;
+    while (previewHost && previewHost.clientHeight < 250 && previewHost.parentElement && previewHost.parentElement !== document.body) {
+      previewHost = previewHost.parentElement;
+    }
+
+    if (!previewHost || previewHost === document.body) {
+      previewHost = document.querySelector<HTMLElement>('main, [role="main"]') || document.body;
+    }
+
+    // 4. Hide Google Drive preview iframe(s)
     iframes.forEach((iframe) => {
       iframe.style.setProperty('display', 'none', 'important');
       iframe.setAttribute('data-cs-hidden', 'true');
     });
 
-    // 3. Dynamically measure Classroom layout bounds
-    // Left boundary: right edge of left navigation
-    const leftNav = document.querySelector<HTMLElement>('nav, [role="navigation"]');
-    const leftPx = leftNav ? Math.max(0, leftNav.getBoundingClientRect().right) : 72;
-
-    // Right boundary: left edge of right grading sidebar ("Grade and feedback")
-    let rightPx = 320;
-    const allDivs = document.querySelectorAll<HTMLElement>('div, aside');
-    for (const el of allDivs) {
-      if (el.clientWidth > 240 && el.clientWidth < 400 && el.textContent?.includes('Grade and feedback')) {
-        rightPx = Math.max(0, window.innerWidth - el.getBoundingClientRect().left);
-        break;
-      }
+    // 5. Mount or re-mount our center overlay container
+    if (this.overlayContainer && this.overlayContainer.parentNode) {
+      this.overlayContainer.parentNode.removeChild(this.overlayContainer);
+      this.overlayContainer = null;
     }
 
-    // Top boundary: bottom edge of top header
-    const topHeader = this.findClassroomTopSubHeader() || document.querySelector<HTMLElement>('header, [role="banner"], [role="toolbar"]');
-    const topPx = topHeader ? Math.max(0, topHeader.getBoundingClientRect().bottom) : 56;
+    this.overlayContainer = document.createElement('div');
+    this.overlayContainer.className = 'classroom-stylus-overlay-panel';
 
-    // 4. Create and mount our center overlay container
-    if (!this.overlayContainer) {
-      this.overlayContainer = document.createElement('div');
-      this.overlayContainer.className = 'classroom-stylus-overlay-panel';
+    if (previewHost !== document.body) {
+      previewHost.classList.add('classroom-stylus-container-active');
+      previewHost.style.setProperty('position', 'relative', 'important');
+      previewHost.style.setProperty('width', '100%', 'important');
+      previewHost.style.setProperty('height', '100%', 'important');
+      previewHost.style.setProperty('min-height', 'calc(100vh - 80px)', 'important');
+      previewHost.style.setProperty('background-color', '#171717', 'important');
+      previewHost.style.setProperty('display', 'flex', 'important');
+      previewHost.style.setProperty('flex-direction', 'column', 'important');
+      previewHost.style.setProperty('overflow', 'hidden', 'important');
+
+      this.overlayContainer.style.cssText = `
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: calc(100vh - 80px) !important;
+        z-index: 1000 !important;
+        background-color: #171717 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+      `;
+      previewHost.appendChild(this.overlayContainer);
+    } else {
+      // Fallback: fixed positioning
+      this.overlayContainer.className = 'classroom-stylus-overlay-panel classroom-stylus-overlay-panel-fallback';
       this.overlayContainer.style.cssText = `
         position: fixed !important;
-        top: ${topPx}px !important;
-        left: ${leftPx}px !important;
-        right: ${rightPx}px !important;
+        top: 56px !important;
+        left: 72px !important;
+        right: 360px !important;
         bottom: 0px !important;
         z-index: 9999 !important;
         background-color: #171717 !important;
         display: flex !important;
         flex-direction: column !important;
         overflow: hidden !important;
-        box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
       `;
       document.body.appendChild(this.overlayContainer);
     }
 
-    this.overlayContainer.innerHTML = '';
-
-    // 5. Mount Toolbar
+    // 6. Mount Toolbar
     this.toolbar = new GradingToolbar({
       onToolSelect: (tool) => this.stylusEngine?.updateOptions({ activeTool: tool }),
       onPenColorChange: (color) => this.stylusEngine?.updateOptions({ penColor: color }),
@@ -371,7 +411,7 @@ class ClassroomStylusApp {
 
     this.overlayContainer.appendChild(this.toolbar.getElement());
 
-    // 6. Initialize Stylus Engine and Canvas Viewer
+    // 7. Initialize Stylus Engine and Canvas Viewer
     const settings = await storage.getSettings();
 
     this.stylusEngine = new StylusEngine({
@@ -393,18 +433,8 @@ class ClassroomStylusApp {
 
     this.overlayContainer.appendChild(this.canvasViewer.getElement());
 
-    // 7. Resolve Google Drive fileId with layered fallbacks
-    let fileId = fileIdOverride || this.currentContext?.fileId;
-    if (!fileId) {
-      fileId = this.detector?.findGoogleDriveFileId();
-    }
-
-    const detectedFileName = this.extractActiveFileName();
-    if (detectedFileName && this.currentContext) {
-      this.currentContext.fileName = detectedFileName;
-    }
-
-    // Fallback: Drive search by filename
+    // 8. Layered search fallbacks for fileId:
+    // Drive search by filename
     if (!fileId && detectedFileName) {
       try {
         const searchResp: ExtensionResponse<any> = await this.sendMessage({
@@ -419,7 +449,7 @@ class ClassroomStylusApp {
       }
     }
 
-    // Fallback: Classroom API with decoded IDs
+    // Classroom API fallback with decoded IDs
     if (!fileId && this.currentContext?.courseId && this.currentContext?.courseWorkId && this.currentContext?.submissionId) {
       try {
         fileId = await this.resolveFileIdFromClassroomApi(
@@ -446,17 +476,43 @@ class ClassroomStylusApp {
   }
 
   private extractActiveFileName(): string | undefined {
-    // Check elements for .pdf filenames
-    const textNodes = document.querySelectorAll<HTMLElement>('[title*=".pdf"], [aria-label*=".pdf"], a, span, div');
-    for (const el of textNodes) {
-      const titleAttr = el.getAttribute('title') || el.getAttribute('aria-label') || '';
-      const m1 = titleAttr.match(/\b([a-zA-Z0-9_\- ]+\.pdf)\b/i);
-      if (m1) return m1[1].trim();
-
-      const text = el.textContent || '';
-      const m2 = text.match(/\b([a-zA-Z0-9_\- ]+\.pdf)\b/i);
-      if (m2 && m2[1].length < 60) return m2[1].trim();
+    if (this.detector) {
+      const detected = this.detector.extractActiveFileName();
+      if (detected) return detected;
     }
+
+    // Look for filename in Classroom's dark header or preview container
+    const headerTitle = document.querySelector<HTMLElement>(
+      '[role="banner"] [title*=".pdf" i], header [title*=".pdf" i], [role="banner"] [aria-label*=".pdf" i]'
+    );
+    if (headerTitle) {
+      const raw = headerTitle.getAttribute('title') || headerTitle.getAttribute('aria-label') || headerTitle.textContent || '';
+      const m = raw.match(/([a-zA-Z0-9_\- ]+?\s*\.pdf)/i);
+      if (m) return m[1].trim();
+    }
+
+    // Check attachment chips in right sidebar
+    const chips = document.querySelectorAll<HTMLElement>(
+      '[role="button"][title*=".pdf" i], [role="link"][title*=".pdf" i], div[title*=".pdf" i]'
+    );
+    for (const chip of chips) {
+      const raw = chip.getAttribute('title') || chip.getAttribute('aria-label') || chip.textContent || '';
+      const m = raw.match(/([a-zA-Z0-9_\- ]+?\s*\.pdf)/i);
+      if (m) return m[1].trim();
+    }
+
+    // Check short text nodes containing .pdf
+    const leaves = document.querySelectorAll<HTMLElement>('span, a, p, div');
+    for (const el of leaves) {
+      if (el.childElementCount <= 1) {
+        const text = (el.textContent || '').trim();
+        if (text.length > 4 && text.length < 80 && /\.pdf\b/i.test(text)) {
+          const m = text.match(/([a-zA-Z0-9_\- ]+?\s*\.pdf)/i);
+          if (m) return m[1].trim();
+        }
+      }
+    }
+
     return undefined;
   }
 
@@ -472,11 +528,26 @@ class ClassroomStylusApp {
           <input type="text" id="csManualDriveInput" placeholder="Paste Google Drive File Link or ID" class="form-input" style="flex: 1; padding: 10px; font-size: 13px;" />
           <button type="button" id="csManualLoadBtn" class="btn btn-primary" style="padding: 0 16px;">Load PDF</button>
         </div>
+        <div style="margin-top: 12px; text-align: center;">
+          <button type="button" id="csOpenTabBtn" class="btn btn-secondary" style="font-size: 12px; padding: 6px 14px; background: #2d2e30; color: #8ab4f8; border: 1px solid #5f6368; border-radius: 9999px; cursor: pointer;">
+            ⧉ Open Fullscreen Grading Tab Instead
+          </button>
+        </div>
       </div>
     `;
 
     const loadBtn = scrollContainer.querySelector<HTMLButtonElement>('#csManualLoadBtn');
     const input = scrollContainer.querySelector<HTMLInputElement>('#csManualDriveInput');
+    const openTabBtn = scrollContainer.querySelector<HTMLButtonElement>('#csOpenTabBtn');
+
+    openTabBtn?.addEventListener('click', () => {
+      const fId = this.currentContext?.fileId || input?.value.trim() || '';
+      chrome.runtime.sendMessage({
+        type: 'OPEN_ANNOTATOR_TAB',
+        fileId: fId,
+        fileName: defaultName,
+      });
+    });
 
     loadBtn?.addEventListener('click', async () => {
       const val = input?.value.trim() || '';
@@ -708,7 +779,12 @@ class ClassroomStylusApp {
       this.overlayContainer = null;
     }
 
-    // Restore hidden Google Drive iframes
+    // Clean up container classes and restore Google Drive iframes
+    document.querySelectorAll('.classroom-stylus-container-active').forEach((el) => {
+      el.classList.remove('classroom-stylus-container-active');
+      (el as HTMLElement).style.backgroundColor = '';
+    });
+
     const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe[data-cs-hidden="true"]');
     iframes.forEach((iframe) => {
       iframe.style.display = '';
