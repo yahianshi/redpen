@@ -575,59 +575,67 @@ class ClassroomStylusApp {
       document.body.appendChild(this.overlayContainer);
     }
 
-    // 6. Mount Toolbar
-    this.toolbar = new GradingToolbar({
-      onToolSelect: (tool) => this.stylusEngine?.updateOptions({ activeTool: tool }),
-      onPenColorChange: (color) => this.stylusEngine?.updateOptions({ penColor: color }),
-      onPenThicknessChange: (thick) => this.stylusEngine?.updateOptions({ penThickness: thick }),
-      onHighlighterColorChange: (color) => this.stylusEngine?.updateOptions({ highlighterColor: color }),
-      onHighlighterThicknessChange: (thick) => this.stylusEngine?.updateOptions({ highlighterThickness: thick }),
-      onTextSizeChange: (size) => this.stylusEngine?.updateOptions({ textSize: size }),
-      onUndo: () => {
-        if (!this.canvasViewer || !this.stylusEngine) return;
-        const result = this.stylusEngine.undo(this.canvasViewer.getStrokes());
-        if (result) {
-          this.canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
-          this.markDirtyAndDebounceSave();
-        }
+    // 6. Read user settings & mount Toolbar
+    const settings = await storage.getSettings();
+
+    this.toolbar = new GradingToolbar(
+      {
+        onToolSelect: (tool) => this.stylusEngine?.updateOptions({ activeTool: tool }),
+        onPenColorChange: (color) => this.stylusEngine?.updateOptions({ penColor: color }),
+        onPenThicknessChange: (thick) => this.stylusEngine?.updateOptions({ penThickness: thick }),
+        onHighlighterColorChange: (color) => this.stylusEngine?.updateOptions({ highlighterColor: color }),
+        onHighlighterThicknessChange: (thick) => this.stylusEngine?.updateOptions({ highlighterThickness: thick }),
+        onTextSizeChange: (size) => this.stylusEngine?.updateOptions({ textSize: size }),
+        onUndo: () => {
+          if (!this.canvasViewer || !this.stylusEngine) return;
+          const result = this.stylusEngine.undo(this.canvasViewer.getStrokes());
+          if (result) {
+            this.canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
+            this.markDirtyAndDebounceSave();
+          }
+        },
+        onRedo: () => {
+          if (!this.canvasViewer || !this.stylusEngine) return;
+          const result = this.stylusEngine.redo(this.canvasViewer.getStrokes());
+          if (result) {
+            this.canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
+            this.markDirtyAndDebounceSave();
+          }
+        },
+        onTogglePenOnly: (penOnly) => {
+          this.stylusEngine?.updateOptions({ penOnlyMode: penOnly });
+          storage.updateSettings({ penOnlyMode: penOnly });
+        },
+        onRestoreOriginal: () => this.restoreOriginalSubmission(),
+        onOpenDedicatedTab: () => {
+          const fId = this.currentContext?.fileId || fileIdOverride;
+          if (fId) {
+            chrome.runtime.sendMessage({
+              type: 'OPEN_ANNOTATOR_TAB',
+              fileId: fId,
+              fileName: this.currentContext?.fileName || this.extractActiveFileName(),
+            });
+          } else {
+            this.showToast('Please wait for document to load before opening dedicated tab.', 'info');
+          }
+        },
+        onClose: () => this.exitCanvasMode(),
+        onZoomIn: () => this.canvasViewer?.zoomIn(),
+        onZoomOut: () => this.canvasViewer?.zoomOut(),
+        onZoomReset: () => this.canvasViewer?.resetZoom(),
+        onPrevPage: () => this.canvasViewer?.prevPage(),
+        onNextPage: () => this.canvasViewer?.nextPage(),
+        onScrollHalfPageDown: () => this.canvasViewer?.scrollHalfPageDown(),
+        onScrollHalfPageUp: () => this.canvasViewer?.scrollHalfPageUp(),
       },
-      onRedo: () => {
-        if (!this.canvasViewer || !this.stylusEngine) return;
-        const result = this.stylusEngine.redo(this.canvasViewer.getStrokes());
-        if (result) {
-          this.canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
-          this.markDirtyAndDebounceSave();
-        }
-      },
-      onTogglePenOnly: (penOnly) => this.stylusEngine?.updateOptions({ penOnlyMode: penOnly }),
-      onRestoreOriginal: () => this.restoreOriginalSubmission(),
-      onOpenDedicatedTab: () => {
-        const fId = this.currentContext?.fileId || fileIdOverride;
-        if (fId) {
-          chrome.runtime.sendMessage({
-            type: 'OPEN_ANNOTATOR_TAB',
-            fileId: fId,
-            fileName: this.currentContext?.fileName || this.extractActiveFileName(),
-          });
-        } else {
-          this.showToast('Please wait for document to load before opening dedicated tab.', 'info');
-        }
-      },
-      onClose: () => this.exitCanvasMode(),
-      onZoomIn: () => this.canvasViewer?.zoomIn(),
-      onZoomOut: () => this.canvasViewer?.zoomOut(),
-      onZoomReset: () => this.canvasViewer?.resetZoom(),
-      onPrevPage: () => this.canvasViewer?.prevPage(),
-      onNextPage: () => this.canvasViewer?.nextPage(),
-      onScrollHalfPageDown: () => this.canvasViewer?.scrollHalfPageDown(),
-      onScrollHalfPageUp: () => this.canvasViewer?.scrollHalfPageUp(),
-    });
+      {
+        initialPenOnlyMode: settings.penOnlyMode,
+      }
+    );
 
     this.overlayContainer.appendChild(this.toolbar.getElement());
 
     // 7. Initialize Stylus Engine and Canvas Viewer
-    const settings = await storage.getSettings();
-
     this.stylusEngine = new StylusEngine({
       penOnlyMode: settings.penOnlyMode,
       activeTool: 'pen',

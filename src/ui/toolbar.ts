@@ -24,6 +24,7 @@ export interface ToolbarEvents {
 
 export interface ToolbarOptions {
   showDedicatedTabButton?: boolean;
+  initialPenOnlyMode?: boolean;
 }
 
 export class GradingToolbar {
@@ -57,6 +58,9 @@ export class GradingToolbar {
       showDedicatedTabButton: true,
       ...options,
     };
+    if (this.options.initialPenOnlyMode !== undefined) {
+      this.penOnlyMode = this.options.initialPenOnlyMode;
+    }
     this.container = document.createElement('div');
     this.container.className = 'classroom-stylus-toolbar-bar';
     this.render();
@@ -142,6 +146,24 @@ export class GradingToolbar {
     const redoBtn = this.container.querySelector<HTMLButtonElement>('.cs-btn-redo');
     if (undoBtn) undoBtn.disabled = !canUndo;
     if (redoBtn) redoBtn.disabled = !canRedo;
+  }
+
+  setPenOnlyMode(penOnly: boolean) {
+    this.penOnlyMode = penOnly;
+    this.updatePenModeUI();
+  }
+
+  private updatePenModeUI() {
+    const btn = this.container.querySelector<HTMLButtonElement>('.cs-toggle-penmode');
+    if (!btn) return;
+    btn.classList.toggle('active', this.penOnlyMode);
+    btn.title = this.penOnlyMode
+      ? 'Palm rejection ON: Accepts Stylus only. Click to allow touch/mouse.'
+      : 'Palm rejection OFF: Accepts Stylus and Touch. Click to lock to Stylus only.';
+    const label = btn.querySelector('.cs-action-label');
+    if (label) {
+      label.textContent = this.penOnlyMode ? 'Stylus Only' : 'Stylus + Touch';
+    }
   }
 
   private render() {
@@ -666,8 +688,7 @@ export class GradingToolbar {
       // Pen-only mode toggle
       if (target.closest('.cs-toggle-penmode')) {
         this.penOnlyMode = !this.penOnlyMode;
-        this.render();
-        this.bindEvents();
+        this.updatePenModeUI();
         this.events.onTogglePenOnly(this.penOnlyMode);
         return;
       }

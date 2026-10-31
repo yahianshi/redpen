@@ -54,29 +54,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   canvasHost.appendChild(canvasViewer.getElement());
 
-  const toolbar = new GradingToolbar({
-    onToolSelect: (tool) => stylusEngine.updateOptions({ activeTool: tool }),
-    onPenColorChange: (color) => stylusEngine.updateOptions({ penColor: color }),
-    onPenThicknessChange: (thick) => stylusEngine.updateOptions({ penThickness: thick }),
-    onHighlighterColorChange: (color) => stylusEngine.updateOptions({ highlighterColor: color }),
-    onHighlighterThicknessChange: (thick) => stylusEngine.updateOptions({ highlighterThickness: thick }),
-    onTextSizeChange: (size) => stylusEngine.updateOptions({ textSize: size }),
-    onUndo: () => {
-      const result = stylusEngine.undo(canvasViewer.getStrokes());
-      if (result) {
-        canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
-        markDirtyAndDebounceSave();
-      }
-    },
-    onRedo: () => {
-      const result = stylusEngine.redo(canvasViewer.getStrokes());
-      if (result) {
-        canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
-        markDirtyAndDebounceSave();
-      }
-    },
-    onTogglePenOnly: (penOnly) => stylusEngine.updateOptions({ penOnlyMode: penOnly }),
-    onRestoreOriginal: async () => {
+  const toolbar = new GradingToolbar(
+    {
+      onToolSelect: (tool) => stylusEngine.updateOptions({ activeTool: tool }),
+      onPenColorChange: (color) => stylusEngine.updateOptions({ penColor: color }),
+      onPenThicknessChange: (thick) => stylusEngine.updateOptions({ penThickness: thick }),
+      onHighlighterColorChange: (color) => stylusEngine.updateOptions({ highlighterColor: color }),
+      onHighlighterThicknessChange: (thick) => stylusEngine.updateOptions({ highlighterThickness: thick }),
+      onTextSizeChange: (size) => stylusEngine.updateOptions({ textSize: size }),
+      onUndo: () => {
+        const result = stylusEngine.undo(canvasViewer.getStrokes());
+        if (result) {
+          canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
+          markDirtyAndDebounceSave();
+        }
+      },
+      onRedo: () => {
+        const result = stylusEngine.redo(canvasViewer.getStrokes());
+        if (result) {
+          canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
+          markDirtyAndDebounceSave();
+        }
+      },
+      onTogglePenOnly: (penOnly) => {
+        stylusEngine.updateOptions({ penOnlyMode: penOnly });
+        storage.updateSettings({ penOnlyMode: penOnly });
+      },
+      onRestoreOriginal: async () => {
       if (!sessionData || !cleanBasePdfBytes) return;
       toolbar.setSyncStatus('syncing');
       try {
@@ -122,7 +126,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     onNextPage: () => canvasViewer.nextPage(),
     onScrollHalfPageDown: () => canvasViewer.scrollHalfPageDown(),
     onScrollHalfPageUp: () => canvasViewer.scrollHalfPageUp(),
-  }, { showDedicatedTabButton: false });
+  }, { showDedicatedTabButton: false, initialPenOnlyMode: settings.penOnlyMode });
 
   canvasViewer.setPageZoomCallback((page, total, zoom) => {
     toolbar.updatePageZoomState(page, total, zoom);
