@@ -16,6 +16,10 @@
   <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License" />
 </p>
 
+<p align="center">
+  <img src="demo.gif" alt="RedPen Classroom Demo" width="760" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); border: 1px solid #2d3748;" />
+</p>
+
 ---
 
 ## 🚀 Why RedPen?
@@ -66,7 +70,7 @@ RedPen follows a minimalist dark interface (`#13181c`) with signature red accent
 
 ---
 
-## 📥 Quick Install (No Coding or Tech Skills Needed!)
+## 📥 Quick Install
 
 You don't need Node.js, git, or any programming knowledge to use RedPen.
 
@@ -87,7 +91,7 @@ You don't need Node.js, git, or any programming knowledge to use RedPen.
 
 ---
 
-## 🛠️ Advanced: Build from Source (For Developers)
+## 🛠️ Build from Source
 
 If you prefer building from the TypeScript source code:
 ```bash
