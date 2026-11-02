@@ -76,7 +76,7 @@ You don't need Node.js, git, or any programming knowledge to use RedPen.
 
 ### Step 1: Download the Extension
 1. Go to the **[Latest Releases](https://github.com/yahianshi/redpen/releases)** page on GitHub.
-2. Under **Assets**, click **`redpen-classroom-v1.0.0.zip`** to download it.
+2. Under **Assets**, click **`redpen-classroom-v1.0.1.zip`** to download it.
 3. Unzip / Extract the downloaded folder on your computer (e.g., right-click → *Extract All*). Keep this folder in a safe place.
 
 ### Step 2: Install into Brave, Chrome, or Edge (30 seconds)
