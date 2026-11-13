@@ -34,6 +34,7 @@ interface PageRecord {
   pdfCanvas: HTMLCanvasElement;
   inkCanvas: HTMLCanvasElement;
   activeCanvas: HTMLCanvasElement;
+  activeCtx?: CanvasRenderingContext2D | null;
   unscaledWidth: number;
   unscaledHeight: number;
   renderedZoom: number;
@@ -163,6 +164,7 @@ export class CanvasViewer {
 
         const pageContainer = document.createElement('div');
         pageContainer.className = 'cs-page-card';
+        pageContainer.style.touchAction = 'none';
         pageContainer.dataset.pageIndex = String(pageIndex);
         pageContainer.dataset.pageNum = String(i);
 
@@ -171,9 +173,11 @@ export class CanvasViewer {
 
         const inkCanvas = document.createElement('canvas');
         inkCanvas.className = 'cs-ink-canvas';
+        inkCanvas.style.touchAction = 'none';
 
         const activeCanvas = document.createElement('canvas');
         activeCanvas.className = 'cs-active-canvas';
+        activeCanvas.style.touchAction = 'none';
 
         pageContainer.appendChild(pdfCanvas);
         pageContainer.appendChild(inkCanvas);
@@ -285,6 +289,7 @@ export class CanvasViewer {
     record.activeCanvas.height = height * dpr;
     record.activeCanvas.style.width = `${width}px`;
     record.activeCanvas.style.height = `${height}px`;
+    record.activeCtx = null;
 
     record.renderedZoom = zoom;
     this.redrawInkCanvas(record);
@@ -323,17 +328,60 @@ export class CanvasViewer {
     let isPointerDown = false;
     let rafId: number | null = null;
     let activeStrokeToRender: Stroke | null = null;
+    let activePredictedPoints: any[] = [];
+    let prevDirtyRect: { minX: number; minY: number; maxX: number; maxY: number } | null = null;
+
+    const getActiveContext = (): CanvasRenderingContext2D | null => {
+      if (!record.activeCtx) {
+        record.activeCtx = activeCanvas.getContext('2d', {
+          desynchronized: true,
+          alpha: true,
+        }) as CanvasRenderingContext2D | null;
+      }
+      return record.activeCtx;
+    };
 
     const renderActiveStroke = () => {
       rafId = null;
       if (!activeStrokeToRender) return;
-      const ctx = activeCanvas.getContext('2d');
+      const ctx = getActiveContext();
       if (!ctx) return;
       const dpr = window.devicePixelRatio || 1;
+      const zoom = this.currentZoom;
+
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, activeCanvas.width, activeCanvas.height);
-      ctx.scale(dpr, dpr);
-      StylusEngine.renderSingleStroke(ctx, activeStrokeToRender, this.currentZoom);
+
+      // Dirty-rect clearing: clear only previous frame's stroke bounding box instead of entire multi-megapixel canvas
+      if (prevDirtyRect) {
+        const pad = (activeStrokeToRender.baseThickness * zoom * 2 + 20) * dpr;
+        const clrMinX = Math.max(0, Math.floor(prevDirtyRect.minX * zoom * dpr - pad));
+        const clrMinY = Math.max(0, Math.floor(prevDirtyRect.minY * zoom * dpr - pad));
+        const clrMaxX = Math.min(activeCanvas.width, Math.ceil(prevDirtyRect.maxX * zoom * dpr + pad));
+        const clrMaxY = Math.min(activeCanvas.height, Math.ceil(prevDirtyRect.maxY * zoom * dpr + pad));
+        ctx.clearRect(clrMinX, clrMinY, clrMaxX - clrMinX, clrMaxY - clrMinY);
+      } else {
+        ctx.clearRect(0, 0, activeCanvas.width, activeCanvas.height);
+      }
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      StylusEngine.renderSingleStroke(ctx, activeStrokeToRender, zoom, activePredictedPoints);
+
+      // Track dirty bounding box
+      prevDirtyRect = {
+        minX: activeStrokeToRender.bbox.minX,
+        minY: activeStrokeToRender.bbox.minY,
+        maxX: activeStrokeToRender.bbox.maxX,
+        maxY: activeStrokeToRender.bbox.maxY,
+      };
+
+      if (activePredictedPoints && activePredictedPoints.length > 0) {
+        for (const pt of activePredictedPoints) {
+          prevDirtyRect.minX = Math.min(prevDirtyRect.minX, pt.x);
+          prevDirtyRect.minY = Math.min(prevDirtyRect.minY, pt.y);
+          prevDirtyRect.maxX = Math.max(prevDirtyRect.maxX, pt.x);
+          prevDirtyRect.maxY = Math.max(prevDirtyRect.maxY, pt.y);
+        }
+      }
     };
 
     const clearActiveCanvas = () => {
@@ -342,11 +390,24 @@ export class CanvasViewer {
         rafId = null;
       }
       activeStrokeToRender = null;
-      const ctx = activeCanvas.getContext('2d');
+      activePredictedPoints = [];
+      const ctx = getActiveContext();
       if (ctx) {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, activeCanvas.width, activeCanvas.height);
+        if (prevDirtyRect) {
+          const dpr = window.devicePixelRatio || 1;
+          const zoom = this.currentZoom;
+          const pad = 40 * dpr;
+          const clrMinX = Math.max(0, Math.floor(prevDirtyRect.minX * zoom * dpr - pad));
+          const clrMinY = Math.max(0, Math.floor(prevDirtyRect.minY * zoom * dpr - pad));
+          const clrMaxX = Math.min(activeCanvas.width, Math.ceil(prevDirtyRect.maxX * zoom * dpr + pad));
+          const clrMaxY = Math.min(activeCanvas.height, Math.ceil(prevDirtyRect.maxY * zoom * dpr + pad));
+          ctx.clearRect(clrMinX, clrMinY, clrMaxX - clrMinX, clrMaxY - clrMinY);
+        } else {
+          ctx.clearRect(0, 0, activeCanvas.width, activeCanvas.height);
+        }
       }
+      prevDirtyRect = null;
     };
 
     inkCanvas.addEventListener('pointerdown', (e: PointerEvent) => {
@@ -359,6 +420,8 @@ export class CanvasViewer {
         this.spawnTextInput(e, record);
         return;
       }
+
+      this.scrollContainer.classList.add('cs-drawing-active');
 
       const strokes = this.pageStrokesMap[record.pageIndex] || (this.pageStrokesMap[record.pageIndex] = []);
 
@@ -377,6 +440,7 @@ export class CanvasViewer {
         isDrawing = true;
         if (result.stroke) {
           activeStrokeToRender = result.stroke;
+          activePredictedPoints = [];
           renderActiveStroke();
         }
       }
@@ -409,6 +473,7 @@ export class CanvasViewer {
       } else if (result.stroke && isDrawing) {
         // High-performance batched live stroke rendering on dedicated activeCanvas
         activeStrokeToRender = result.stroke;
+        activePredictedPoints = result.predictedPoints || [];
         if (rafId === null) {
           rafId = requestAnimationFrame(renderActiveStroke);
         }
@@ -416,6 +481,7 @@ export class CanvasViewer {
     });
 
     const handlePointerUp = (e: PointerEvent) => {
+      this.scrollContainer.classList.remove('cs-drawing-active');
       clearActiveCanvas();
 
       isPointerDown = false;

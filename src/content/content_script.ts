@@ -120,6 +120,7 @@ class ClassroomStylusApp {
     });
 
     window.addEventListener('beforeunload', () => {
+      storage.flushPendingSessionStrokes();
       if (this.sessionData && this.sessionData.isDirty) {
         this.saveFlattenedPdf(true);
       }
@@ -137,13 +138,19 @@ class ClassroomStylusApp {
       this.updateButtonsState();
     }, 400);
 
-    // Instant DOM observer for Google Classroom's view re-renders (e.g. entering grades, comments, status changes)
+    // RAF-throttled DOM observer for Google Classroom's view re-renders
+    let domMutationRaf: number | null = null;
     const domObserver = new MutationObserver(() => {
       if (!isExtensionValid()) {
         domObserver.disconnect();
         return;
       }
-      this.updateButtonsState();
+      if (domMutationRaf === null) {
+        domMutationRaf = requestAnimationFrame(() => {
+          domMutationRaf = null;
+          this.updateButtonsState();
+        });
+      }
     });
     domObserver.observe(document.body, { childList: true, subtree: true });
 
@@ -265,8 +272,8 @@ class ClassroomStylusApp {
   private ensureCanvasOverlayMounted() {
     if (!this.isCanvasActive || !this.overlayContainer) return;
 
-    // Check if overlayContainer is in DOM and visible
-    const isAttached = document.body.contains(this.overlayContainer) && this.overlayContainer.clientHeight > 100;
+    // Check if overlayContainer is in DOM and attached without triggering forced layout reflow
+    const isAttached = this.overlayContainer.isConnected;
     if (isAttached) {
       return;
     }
@@ -321,54 +328,44 @@ class ClassroomStylusApp {
   }
 
   private findSubmissionPdfChip(): HTMLElement | null {
-    // 1. Search for leaf elements containing .pdf on the right half of the screen
-    const thresholdX = typeof window !== 'undefined' ? window.innerWidth * 0.45 : 0;
-    const candidates = document.querySelectorAll<HTMLElement>(
-      'span, a, div, p, [role="button"], [role="link"], li'
+    // 1. Fast path: Direct attribute lookup without forced layout recalculation
+    const directMatches = document.querySelectorAll<HTMLElement>(
+      '[title*=".pdf" i], [aria-label*=".pdf" i], [data-filename*=".pdf" i], a[href*=".pdf" i]'
     );
+    for (const el of directMatches) {
+      const chip = el.closest<HTMLElement>('[role="button"], [role="link"], a, li') || el;
+      return chip;
+    }
 
-    for (const el of candidates) {
-      if (el.childElementCount <= 2) {
-        const txt = (el.textContent || '').trim();
-        if (txt.length > 4 && txt.length < 120 && /\.pdf\b/i.test(txt)) {
-          if (thresholdX > 0) {
-            const rect = el.getBoundingClientRect();
-            if (rect.width > 0 && rect.left < thresholdX) {
-              continue; // Skip left-hand elements
-            }
-          }
-
-          // Found .pdf element in sidebar region! Walk up to find the attachment chip container.
-          let chip: HTMLElement = el;
-          let cur: HTMLElement | null = el;
-          while (cur && cur !== document.body) {
-            const role = cur.getAttribute('role');
-            const tag = cur.tagName.toLowerCase();
-            if (role === 'button' || role === 'link' || tag === 'a' || tag === 'li') {
-              chip = cur;
-              break;
-            }
-            if (
-              cur.parentElement &&
-              (cur.parentElement.textContent?.includes('Grade') ||
-               cur.parentElement.textContent?.includes('Private comments') ||
-               cur.parentElement.textContent?.includes('Turned in'))
-            ) {
-              chip = cur;
-              break;
-            }
-            cur = cur.parentElement;
-          }
-          return chip;
+    // 2. Scoped sidebar inspection (only search aside / complementary / sidebar)
+    const sidebar = document.querySelector<HTMLElement>('aside, [role="complementary"], .classroom-sidebar');
+    if (sidebar) {
+      const sidebarLinks = sidebar.querySelectorAll<HTMLElement>('[role="button"], [role="link"], a, li');
+      for (const el of sidebarLinks) {
+        const txt = el.textContent || '';
+        if (/\.pdf\b/i.test(txt)) {
+          return el;
         }
       }
     }
 
-    // 2. Search by title / aria-label attribute
-    const attrElements = document.querySelectorAll<HTMLElement>('[title*=".pdf" i], [aria-label*=".pdf" i]');
-    for (const el of attrElements) {
-      const chip = el.closest<HTMLElement>('[role="button"], [role="link"], a, li') || el;
-      return chip;
+    // 3. Fallback: Search for leaf elements on the right half of the screen
+    const thresholdX = typeof window !== 'undefined' ? window.innerWidth * 0.45 : 0;
+    const candidates = document.querySelectorAll<HTMLElement>(
+      '[role="button"], [role="link"], a, li'
+    );
+
+    for (const el of candidates) {
+      const txt = (el.textContent || '').trim();
+      if (txt.length > 4 && txt.length < 120 && /\.pdf\b/i.test(txt)) {
+        if (thresholdX > 0) {
+          const rect = el.getBoundingClientRect();
+          if (rect.width > 0 && rect.left < thresholdX) {
+            continue;
+          }
+        }
+        return el;
+      }
     }
 
     return null;
@@ -746,8 +743,6 @@ class ClassroomStylusApp {
       highlighterColor: settings.defaultHighlighterColor,
       highlighterThickness: settings.defaultHighlighterThickness,
       textSize: 24,
-      onStrokeAdded: () => this.markDirtyAndDebounceSave(),
-      onStrokeErased: () => this.markDirtyAndDebounceSave(),
       onHistoryChange: (canUndo, canRedo) => this.toolbar?.setHistoryState(canUndo, canRedo),
     });
 
@@ -1312,7 +1307,7 @@ class ClassroomStylusApp {
     return bytes.buffer;
   }
 
-  private showToast(message: string, type: 'info' | 'error' = 'info') {
+  private showToast(message: string, type: 'info' | 'error' | 'success' = 'info') {
     const toast = document.createElement('div');
     toast.className = `cs-toast cs-toast-${type}`;
     toast.textContent = message;

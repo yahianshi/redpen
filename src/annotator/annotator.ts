@@ -34,6 +34,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const settings = await storage.getSettings();
 
+  window.addEventListener('beforeunload', () => {
+    storage.flushPendingSessionStrokes();
+  });
+
   const stylusEngine = new StylusEngine({
     penOnlyMode: settings.penOnlyMode,
     activeTool: 'pen',
@@ -42,8 +46,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     highlighterColor: settings.defaultHighlighterColor,
     highlighterThickness: settings.defaultHighlighterThickness,
     textSize: 24,
-    onStrokeAdded: () => markDirtyAndDebounceSave(),
-    onStrokeErased: () => markDirtyAndDebounceSave(),
     onHistoryChange: (canUndo, canRedo) => toolbar.setHistoryState(canUndo, canRedo),
   });
 

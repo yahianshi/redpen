@@ -512,6 +512,76 @@ async function runTestSuite() {
     failed++;
   }
 
+  // --- Suite 8: Low-Latency Pipeline & Storage Debouncing ---
+  console.log('\n--- Suite 8: Low-Latency Pipeline & Storage Optimization ---');
+  try {
+    const { storage } = await import('../src/services/storage');
+    const dummySession = {
+      fileId: 'test_file_perf_123',
+      pageStrokes: {},
+      lastSavedTime: Date.now(),
+      isDirty: true,
+    };
+
+    // Test storage in-memory immediacy & debouncing
+    storage.saveSessionStrokes(dummySession);
+    const inMem = await storage.getSessionStrokes('test_file_perf_123');
+    assert(inMem.fileId === 'test_file_perf_123', 'storage.saveSessionStrokes updates memory cache synchronously');
+    assert((storage as any).pendingSessionStrokes.has('test_file_perf_123'), 'IndexedDB write queued in debounce buffer');
+
+    // Test flush
+    await storage.flushPendingSessionStrokes();
+    assert((storage as any).pendingSessionStrokes.size === 0, 'flushPendingSessionStrokes flushes debounce buffer cleanly');
+
+    // Test StylusEngine instance cached rect
+    const engine = new StylusEngine({ penOnlyMode: false, activeTool: 'pen' });
+    let rectQueryCount = 0;
+    const trackingCanvas: any = {
+      getBoundingClientRect: () => {
+        rectQueryCount++;
+        return { left: 10, top: 20, width: 500, height: 600 };
+      },
+      setPointerCapture: () => {},
+      releasePointerCapture: () => {},
+      hasPointerCapture: () => true,
+    };
+
+    const downEv: any = { clientX: 50, clientY: 60, pressure: 0.5, pointerId: 2, pointerType: 'pen' };
+    engine.startPointer(downEv, 0, trackingCanvas, 1.0, []);
+    assert(rectQueryCount === 1, 'startPointer queries getBoundingClientRect once');
+
+    // 10 move events during stroke should NOT re-query getBoundingClientRect!
+    const moveEv: any = { clientX: 55, clientY: 65, pressure: 0.5, buttons: 1, getCoalescedEvents: () => [] };
+    for (let i = 0; i < 10; i++) {
+      engine.movePointer(moveEv, 0, trackingCanvas, 1.0, []);
+    }
+    assert(rectQueryCount === 1, '10 movePointer events reuse cachedRect with zero layout reflows');
+
+    // Test predicted points rendering
+    let predictedDrawCount = 0;
+    const mockCtx2: any = {
+      save: () => {},
+      restore: () => {},
+      beginPath: () => {},
+      moveTo: () => {},
+      lineTo: () => {},
+      quadraticCurveTo: () => { predictedDrawCount++; },
+      stroke: () => {},
+      fill: () => {},
+      arc: () => {},
+    };
+    const testStrokeObj = (engine as any).currentStroke;
+    const predictedPts = [{ x: 60, y: 70, pressure: 0.5, width: 3 }];
+    StylusEngine.renderSingleStroke(mockCtx2, testStrokeObj, 1.0, predictedPts);
+    assert(predictedDrawCount > 0, 'renderSingleStroke seamlessly incorporates predicted forward points');
+
+    engine.endPointer({ pointerId: 2 } as any, 0, trackingCanvas);
+    assert((engine as any).cachedCanvasRect === null, 'endPointer clears cachedCanvasRect');
+  } catch (e: any) {
+    console.error('Suite 8 test error:', e);
+    failed++;
+  }
+
   console.log(`\n========================================`);
   console.log(`Summary: ${passed} passed, ${failed} failed`);
   console.log(`========================================\n`);

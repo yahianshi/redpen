@@ -83,9 +83,15 @@ export class ClassroomDetector {
   }
 
   private initDomObserver() {
+    let detectorRaf: number | null = null;
     this.observer = new MutationObserver(() => {
       if (this.isSubmissionUrl()) {
-        this.attemptExtractContext();
+        if (detectorRaf === null) {
+          detectorRaf = requestAnimationFrame(() => {
+            detectorRaf = null;
+            this.attemptExtractContext();
+          });
+        }
       }
     });
 

@@ -674,11 +674,17 @@
   gap: 24px;
 }
 
+.cs-scroll-container.cs-drawing-active {
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+}
+
 .cs-page-card {
   position: relative;
   background-color: #ffffff;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   user-select: none;
+  touch-action: none !important;
 }
 
 .cs-pdf-canvas {

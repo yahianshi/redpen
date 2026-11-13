@@ -94,7 +94,7 @@ export class PdfFlattener {
           const lines = stroke.text.split('\n');
           const textRotation = (360 - rotation) % 360;
 
-          lines.forEach((line, lIdx) => {
+          lines.forEach((line: string, lIdx: number) => {
             const dispX = pt.x;
             const dispY = pt.y + (lIdx + 1) * fontSize * 1.15;
             const pdfPt = mapDisplayToPdf(dispX, dispY, rotation, pageWidth, pageHeight);

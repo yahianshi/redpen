@@ -19,6 +19,8 @@ class StorageService {
   private dbPromise: Promise<IDBDatabase> | null = null;
   private memoryCleanPdfCache = new Map<string, ArrayBuffer>();
   private memoryStrokesCache = new Map<string, SessionData>();
+  private pendingSessionStrokes = new Map<string, SessionData>();
+  private strokeSaveDebounceTimer: any = null;
 
   private getDB(): Promise<IDBDatabase> {
     if (this.dbPromise) return this.dbPromise;
@@ -149,13 +151,44 @@ class StorageService {
     }
   }
 
+  /**
+   * Updates in-memory session strokes instantly and debounces the expensive
+   * IndexedDB transaction to avoid main-thread and storage serialization lag during rapid drawing.
+   */
   async saveSessionStrokes(sessionData: SessionData): Promise<void> {
     this.memoryStrokesCache.set(sessionData.fileId, sessionData);
+    this.pendingSessionStrokes.set(sessionData.fileId, sessionData);
+
+    if (this.strokeSaveDebounceTimer) {
+      clearTimeout(this.strokeSaveDebounceTimer);
+    }
+
+    this.strokeSaveDebounceTimer = setTimeout(() => {
+      this.strokeSaveDebounceTimer = null;
+      this.flushPendingSessionStrokes();
+    }, 800);
+  }
+
+  /**
+   * Immediately flushes any uncommitted session strokes to IndexedDB.
+   */
+  async flushPendingSessionStrokes(): Promise<void> {
+    if (this.strokeSaveDebounceTimer) {
+      clearTimeout(this.strokeSaveDebounceTimer);
+      this.strokeSaveDebounceTimer = null;
+    }
+
+    if (this.pendingSessionStrokes.size === 0) return;
+    const entries = Array.from(this.pendingSessionStrokes.values());
+    this.pendingSessionStrokes.clear();
+
     try {
       const db = await this.getDB();
       const tx = db.transaction(STORE_SESSION_STROKES, 'readwrite');
       const store = tx.objectStore(STORE_SESSION_STROKES);
-      store.put(sessionData);
+      for (const item of entries) {
+        store.put(item);
+      }
       await new Promise<void>((resolve, reject) => {
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
@@ -167,6 +200,7 @@ class StorageService {
 
   async clearSessionStrokes(fileId: string): Promise<void> {
     this.memoryStrokesCache.delete(fileId);
+    this.pendingSessionStrokes.delete(fileId);
     try {
       const db = await this.getDB();
       const tx = db.transaction(STORE_SESSION_STROKES, 'readwrite');

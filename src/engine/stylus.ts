@@ -37,6 +37,7 @@ export class StylusEngine {
   private activePageIndex: number = -1;
   private undoStack: HistoryAction[] = [];
   private redoStack: HistoryAction[] = [];
+  private cachedCanvasRect: DOMRect | null = null;
 
   constructor(options: StylusEngineOptions) {
     this.options = { ...options };
@@ -95,7 +96,8 @@ export class StylusEngine {
   }
 
   /**
-   * Transforms a PointerEvent coordinate on canvas to unscaled PDF points
+   * Transforms a PointerEvent coordinate on canvas to unscaled PDF points.
+   * Utilizes instance cachedRect when available to avoid forced layout reflow.
    */
   getCanvasPoint(
     e: PointerEvent,
@@ -103,7 +105,7 @@ export class StylusEngine {
     zoom: number,
     cachedRect?: DOMRect
   ): StrokePoint {
-    const rect = cachedRect || canvas.getBoundingClientRect();
+    const rect = cachedRect || this.cachedCanvasRect || (this.cachedCanvasRect = canvas.getBoundingClientRect());
     const rawX = e.clientX - rect.left;
     const rawY = e.clientY - rect.top;
 
@@ -143,8 +145,9 @@ export class StylusEngine {
       }
     }
     this.activePageIndex = pageIndex;
+    this.cachedCanvasRect = canvas.getBoundingClientRect();
 
-    const pt = this.getCanvasPoint(e, canvas, zoom);
+    const pt = this.getCanvasPoint(e, canvas, zoom, this.cachedCanvasRect);
 
     if (this.options.activeTool === 'eraser') {
       // Only erase on active press (stylus touching screen or mouse click)
@@ -181,18 +184,26 @@ export class StylusEngine {
     canvas: HTMLCanvasElement,
     zoom: number,
     pageStrokes: Stroke[]
-  ): { stroke?: Stroke; erasedStroke?: Stroke } {
+  ): { stroke?: Stroke; erasedStroke?: Stroke; predictedPoints?: StrokePoint[] } {
     if (this.options.penOnlyMode && e.pointerType !== 'pen') {
       return {};
     }
 
-    // Cache canvas bounding rect once per pointermove to eliminate synchronous layout reflows
-    const rect = canvas.getBoundingClientRect();
+    // Reuse cached canvas bounding rect during active stroke to eliminate synchronous layout reflows
+    const rect = this.cachedCanvasRect || (this.cachedCanvasRect = canvas.getBoundingClientRect());
 
     // Coalesced events for high-frequency styluses (120Hz/240Hz)
-    const coalescedEvents =
-      typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [e];
-    const events = coalescedEvents.length > 0 ? coalescedEvents : [e];
+    let events: PointerEvent[] | readonly PointerEvent[];
+    if (typeof e.getCoalescedEvents === 'function') {
+      try {
+        const coalesced = e.getCoalescedEvents();
+        events = coalesced && coalesced.length > 0 ? coalesced : [e];
+      } catch {
+        events = [e];
+      }
+    } else {
+      events = [e];
+    }
 
     if (this.options.activeTool === 'eraser') {
       // Only erase when pointer is actively pressed down (clicked or stylus touching screen)
@@ -226,7 +237,23 @@ export class StylusEngine {
       this.currentStroke.bbox.maxY = Math.max(this.currentStroke.bbox.maxY, pt.y + halfW);
     }
 
-    return { stroke: this.currentStroke };
+    // Extract predicted events if supported by browser/OS for zero-latency stylus tracing
+    let predictedPoints: StrokePoint[] | undefined = undefined;
+    if (typeof (e as any).getPredictedEvents === 'function') {
+      try {
+        const predicted = (e as any).getPredictedEvents();
+        if (predicted && predicted.length > 0) {
+          predictedPoints = [];
+          for (const pev of predicted) {
+            predictedPoints.push(this.getCanvasPoint(pev, canvas, zoom, rect));
+          }
+        }
+      } catch {
+        // Fallback gracefully if predicted events are unavailable
+      }
+    }
+
+    return { stroke: this.currentStroke, predictedPoints };
   }
 
   endPointer(
@@ -241,6 +268,8 @@ export class StylusEngine {
         // Ignored
       }
     }
+
+    this.cachedCanvasRect = null;
 
     if (this.currentStroke && this.activePageIndex === pageIndex) {
       const finishedStroke = this.currentStroke;
@@ -446,11 +475,13 @@ export class StylusEngine {
 
   /**
    * Renders a single stroke onto a 2D canvas context with quadratic Bezier smoothing.
+   * Supports optional predictedPoints for real-time low-latency stroke heads.
    */
   static renderSingleStroke(
     ctx: CanvasRenderingContext2D,
     stroke: Stroke,
-    zoom: number
+    zoom: number,
+    predictedPoints?: StrokePoint[]
   ) {
     if (!stroke.points || stroke.points.length === 0) return;
 
@@ -484,7 +515,7 @@ export class StylusEngine {
       return;
     }
 
-    if (stroke.points.length === 1) {
+    if (stroke.points.length === 1 && (!predictedPoints || predictedPoints.length === 0)) {
       const pt = stroke.points[0];
       const r = ((pt.width || stroke.baseThickness) * zoom) / 2;
       ctx.beginPath();
@@ -494,15 +525,18 @@ export class StylusEngine {
       return;
     }
 
-    // Bezier curve smoothing through midpoints
-    const pts = stroke.points;
-    ctx.beginPath();
+    // Combine real points and any forward-predicted points for live rendering
+    const pts = predictedPoints && predictedPoints.length > 0
+      ? stroke.points.concat(predictedPoints)
+      : stroke.points;
 
     const p0 = pts[0];
+    // Set lineWidth once per path rather than mutating canvas state in a loop
     ctx.lineWidth = Math.max(1, (p0.width || stroke.baseThickness) * zoom);
 
     if (pts.length === 2) {
       const p1 = pts[1];
+      ctx.beginPath();
       ctx.moveTo(p0.x * zoom, p0.y * zoom);
       ctx.lineTo(p1.x * zoom, p1.y * zoom);
       ctx.stroke();
@@ -510,7 +544,8 @@ export class StylusEngine {
       return;
     }
 
-    // Start at first point
+    // Bezier curve smoothing through midpoints
+    ctx.beginPath();
     ctx.moveTo(p0.x * zoom, p0.y * zoom);
 
     for (let i = 1; i < pts.length - 1; i++) {
@@ -519,7 +554,6 @@ export class StylusEngine {
       const midX = ((curr.x + next.x) / 2) * zoom;
       const midY = ((curr.y + next.y) / 2) * zoom;
 
-      ctx.lineWidth = Math.max(1, (curr.width || stroke.baseThickness) * zoom);
       ctx.quadraticCurveTo(curr.x * zoom, curr.y * zoom, midX, midY);
     }
 
@@ -544,6 +578,7 @@ export class StylusEngine {
     strokes: Stroke[],
     zoom: number
   ) {
+    if (!strokes || strokes.length === 0) return;
     for (const stroke of strokes) {
       StylusEngine.renderSingleStroke(ctx, stroke, zoom);
     }

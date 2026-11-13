@@ -11,6 +11,8 @@ var e = "cleanPdfs", t = "sessionStrokes", n = {
 	dbPromise = null;
 	memoryCleanPdfCache = /* @__PURE__ */ new Map();
 	memoryStrokesCache = /* @__PURE__ */ new Map();
+	pendingSessionStrokes = /* @__PURE__ */ new Map();
+	strokeSaveDebounceTimer = null;
 	getDB() {
 		return this.dbPromise ||= new Promise((n, r) => {
 			if (typeof indexedDB > "u") {
@@ -93,10 +95,18 @@ var e = "cleanPdfs", t = "sessionStrokes", n = {
 		}
 	}
 	async saveSessionStrokes(e) {
-		this.memoryStrokesCache.set(e.fileId, e);
+		this.memoryStrokesCache.set(e.fileId, e), this.pendingSessionStrokes.set(e.fileId, e), this.strokeSaveDebounceTimer && clearTimeout(this.strokeSaveDebounceTimer), this.strokeSaveDebounceTimer = setTimeout(() => {
+			this.strokeSaveDebounceTimer = null, this.flushPendingSessionStrokes();
+		}, 800);
+	}
+	async flushPendingSessionStrokes() {
+		if (this.strokeSaveDebounceTimer &&= (clearTimeout(this.strokeSaveDebounceTimer), null), this.pendingSessionStrokes.size === 0) return;
+		let e = Array.from(this.pendingSessionStrokes.values());
+		this.pendingSessionStrokes.clear();
 		try {
-			let n = (await this.getDB()).transaction(t, "readwrite");
-			n.objectStore(t).put(e), await new Promise((e, t) => {
+			let n = (await this.getDB()).transaction(t, "readwrite"), r = n.objectStore(t);
+			for (let t of e) r.put(t);
+			await new Promise((e, t) => {
 				n.oncomplete = () => e(), n.onerror = () => t(n.error);
 			});
 		} catch (e) {
@@ -104,7 +114,7 @@ var e = "cleanPdfs", t = "sessionStrokes", n = {
 		}
 	}
 	async clearSessionStrokes(e) {
-		this.memoryStrokesCache.delete(e);
+		this.memoryStrokesCache.delete(e), this.pendingSessionStrokes.delete(e);
 		try {
 			let n = (await this.getDB()).transaction(t, "readwrite");
 			n.objectStore(t).delete(e), await new Promise((e, t) => {
