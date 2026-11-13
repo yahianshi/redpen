@@ -416,6 +416,24 @@ async function runTestSuite() {
 
     const verifiedDoc = await PDFDocument.load(flattenedRotated);
     assert(verifiedDoc.getPage(0).getRotation().angle === 90, 'Flattened output PDF preserves page 90° rotation permanently');
+
+    // Test 5: StylusEngine tracks page rotation in history and undoes it
+    const testEngine = new StylusEngine({ penOnlyMode: true, activeTool: 'pen' });
+    assert(!testEngine.canUndo(), 'StylusEngine initially cannot undo');
+
+    testEngine.recordPageRotated(0, 90);
+    assert(testEngine.canUndo(), 'StylusEngine can undo after page rotation is recorded');
+
+    const undoRot = testEngine.undo({});
+    assert(undoRot?.type === 'rotate', 'Undo returns action type "rotate"');
+    assert(undoRot?.affectedPageIndex === 0, 'Undo rotation targets affected page index 0');
+    assert(undoRot?.deltaDegrees === -90, 'Undo rotation provides inverted deltaDegrees (-90)');
+    assert(testEngine.canRedo(), 'StylusEngine can redo after rotation undo');
+
+    const redoRot = testEngine.redo({});
+    assert(redoRot?.type === 'rotate', 'Redo returns action type "rotate"');
+    assert(redoRot?.affectedPageIndex === 0, 'Redo rotation targets page index 0');
+    assert(redoRot?.deltaDegrees === 90, 'Redo rotation provides forward deltaDegrees (+90)');
   } catch (e: any) {
     console.error('Page rotation test error:', e);
     failed++;

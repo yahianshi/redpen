@@ -54,6 +54,87 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   canvasHost.appendChild(canvasViewer.getElement());
 
+  const applyPageRotation = async (
+    pageIndex: number,
+    deltaDegrees: number = 90,
+    recordHistory: boolean = true
+  ) => {
+    if (!cleanBasePdfBytes || !sessionData) return;
+    toolbar.setSyncStatus('syncing');
+
+    try {
+      const record = canvasViewer.getPageRecord(pageIndex);
+      const oldW = record ? record.unscaledWidth : 0;
+      const oldH = record ? record.unscaledHeight : 0;
+
+      const newPdfBytes = await PdfFlattener.rotatePage(
+        cleanBasePdfBytes,
+        pageIndex,
+        deltaDegrees
+      );
+      cleanBasePdfBytes = newPdfBytes;
+
+      const strokesMap = canvasViewer.getStrokes();
+      const pageStrokes = strokesMap[pageIndex];
+      if (pageStrokes && pageStrokes.length > 0 && oldW > 0 && oldH > 0) {
+        for (const stroke of pageStrokes) {
+          if (stroke.points) {
+            for (const pt of stroke.points) {
+              const oldX = pt.x;
+              const oldY = pt.y;
+              if (deltaDegrees === 90) {
+                pt.x = oldH - oldY;
+                pt.y = oldX;
+              } else if (deltaDegrees === -90 || deltaDegrees === 270) {
+                pt.x = oldY;
+                pt.y = oldW - oldX;
+              } else if (deltaDegrees === 180 || deltaDegrees === -180) {
+                pt.x = oldW - oldX;
+                pt.y = oldH - oldY;
+              }
+            }
+          }
+          if (stroke.bbox) {
+            const b = stroke.bbox;
+            if (deltaDegrees === 90) {
+              stroke.bbox = {
+                minX: oldH - b.maxY,
+                maxX: oldH - b.minY,
+                minY: b.minX,
+                maxY: b.maxX,
+              };
+            } else if (deltaDegrees === -90 || deltaDegrees === 270) {
+              stroke.bbox = {
+                minX: b.minY,
+                maxX: b.maxY,
+                minY: oldW - b.maxX,
+                maxY: oldW - b.minX,
+              };
+            } else if (deltaDegrees === 180 || deltaDegrees === -180) {
+              stroke.bbox = {
+                minX: oldW - b.maxX,
+                maxX: oldW - b.minX,
+                minY: oldH - b.maxY,
+                maxY: oldH - b.minY,
+              };
+            }
+          }
+        }
+      }
+
+      if (recordHistory) {
+        stylusEngine.recordPageRotated(pageIndex, deltaDegrees);
+      }
+
+      await canvasViewer.updateRotatedPage(cleanBasePdfBytes, pageIndex, strokesMap);
+      await storage.saveCleanBasePdf(fileId, cleanBasePdfBytes, originalRevisionId);
+      markDirtyAndDebounceSave();
+    } catch (err: any) {
+      console.error('[RedPen] Error rotating page in dedicated tab:', err);
+      toolbar.setSyncStatus('error', err.message);
+    }
+  };
+
   const toolbar = new GradingToolbar(
     {
       onToolSelect: (tool) => stylusEngine.updateOptions({ activeTool: tool }),
@@ -62,18 +143,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       onHighlighterColorChange: (color) => stylusEngine.updateOptions({ highlighterColor: color }),
       onHighlighterThicknessChange: (thick) => stylusEngine.updateOptions({ highlighterThickness: thick }),
       onTextSizeChange: (size) => stylusEngine.updateOptions({ textSize: size }),
-      onUndo: () => {
+      onUndo: async () => {
         const result = stylusEngine.undo(canvasViewer.getStrokes());
         if (result) {
-          canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
-          markDirtyAndDebounceSave();
+          if (result.type === 'rotate') {
+            await applyPageRotation(result.affectedPageIndex, result.deltaDegrees || -90, false);
+          } else {
+            canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
+            markDirtyAndDebounceSave();
+          }
         }
       },
-      onRedo: () => {
+      onRedo: async () => {
         const result = stylusEngine.redo(canvasViewer.getStrokes());
         if (result) {
-          canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
-          markDirtyAndDebounceSave();
+          if (result.type === 'rotate') {
+            await applyPageRotation(result.affectedPageIndex, result.deltaDegrees || 90, false);
+          } else {
+            canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
+            markDirtyAndDebounceSave();
+          }
         }
       },
       onTogglePenOnly: (penOnly) => {
@@ -81,54 +170,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         storage.updateSettings({ penOnlyMode: penOnly });
       },
       onRotatePage: async () => {
-        if (!cleanBasePdfBytes || !sessionData) return;
         const curPage = canvasViewer.getCurrentPage();
-        const pageIndex = curPage - 1;
-        toolbar.setSyncStatus('syncing');
-
-        try {
-          const record = canvasViewer.getPageRecord(pageIndex);
-          const oldW = record ? record.unscaledWidth : 0;
-          const oldH = record ? record.unscaledHeight : 0;
-
-          const newPdfBytes = await PdfFlattener.rotatePage(
-            cleanBasePdfBytes,
-            pageIndex,
-            90
-          );
-          cleanBasePdfBytes = newPdfBytes;
-
-          const strokesMap = canvasViewer.getStrokes();
-          const pageStrokes = strokesMap[pageIndex];
-          if (pageStrokes && pageStrokes.length > 0 && oldW > 0 && oldH > 0) {
-            for (const stroke of pageStrokes) {
-              if (stroke.points) {
-                for (const pt of stroke.points) {
-                  const oldX = pt.x;
-                  const oldY = pt.y;
-                  pt.x = oldH - oldY;
-                  pt.y = oldX;
-                }
-              }
-              if (stroke.bbox) {
-                const b = stroke.bbox;
-                stroke.bbox = {
-                  minX: oldH - b.maxY,
-                  maxX: oldH - b.minY,
-                  minY: b.minX,
-                  maxY: b.maxX,
-                };
-              }
-            }
-          }
-
-          await canvasViewer.loadPdf(cleanBasePdfBytes, strokesMap, curPage);
-          await storage.saveCleanBasePdf(fileId, cleanBasePdfBytes, originalRevisionId);
-          markDirtyAndDebounceSave();
-        } catch (err: any) {
-          console.error('[RedPen] Error rotating page in dedicated tab:', err);
-          toolbar.setSyncStatus('error', err.message);
-        }
+        await applyPageRotation(curPage - 1, 90, true);
       },
       onRestoreOriginal: async () => {
         if (!sessionData || !cleanBasePdfBytes) return;

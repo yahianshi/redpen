@@ -195,7 +195,7 @@ export class CanvasViewer {
 
       await this.renderAllPages();
       if (initialPageNum && initialPageNum > 1) {
-        this.scrollToPage(initialPageNum);
+        this.scrollToPage(initialPageNum, 'auto');
       }
       this.updateBottomZoomPill();
     } catch (err: any) {
@@ -651,7 +651,7 @@ export class CanvasViewer {
     await this.renderAllPages();
   }
 
-  scrollToPage(pageNum: number) {
+  scrollToPage(pageNum: number, behavior: ScrollBehavior = 'smooth') {
     const record = this.pageRecords.find((r) => r.pageIndex === pageNum - 1);
     if (record) {
       if (typeof this.scrollContainer.getBoundingClientRect === 'function' && typeof record.container.getBoundingClientRect === 'function') {
@@ -659,19 +659,66 @@ export class CanvasViewer {
         const pageRect = record.container.getBoundingClientRect();
         const relativeTop = pageRect.top - containerRect.top + this.scrollContainer.scrollTop;
         if (typeof this.scrollContainer.scrollTo === 'function') {
-          this.scrollContainer.scrollTo({ top: Math.max(0, relativeTop - 16), behavior: 'smooth' });
+          this.scrollContainer.scrollTo({ top: Math.max(0, relativeTop - 16), behavior });
         } else {
           this.scrollContainer.scrollTop = Math.max(0, relativeTop - 16);
         }
       } else if (typeof record.container.offsetTop === 'number') {
         if (typeof this.scrollContainer.scrollTo === 'function') {
-          this.scrollContainer.scrollTo({ top: Math.max(0, record.container.offsetTop - 16), behavior: 'smooth' });
+          this.scrollContainer.scrollTo({ top: Math.max(0, record.container.offsetTop - 16), behavior });
         } else {
           this.scrollContainer.scrollTop = Math.max(0, record.container.offsetTop - 16);
         }
       }
       this.currentPage = pageNum;
       this.updateBottomZoomPill();
+    }
+  }
+
+  /**
+   * Updates only a single rotated page in-place without rebuilding or reloading other pages.
+   * Keeps scroll position anchored directly at the page and avoids scroll jumps.
+   */
+  async updateRotatedPage(
+    newPdfBytes: ArrayBuffer,
+    pageIndex: number,
+    newStrokesMap: PageStrokesMap
+  ) {
+    this.pageStrokesMap = newStrokesMap;
+    const record = this.pageRecords.find((r) => r.pageIndex === pageIndex);
+    if (!record) return;
+
+    // Show temporary subtle loading overlay on just this page card
+    let loader = record.container.querySelector('.cs-page-rotate-loader') as HTMLElement | null;
+    if (!loader) {
+      loader = document.createElement('div');
+      loader.className = 'cs-page-rotate-loader';
+      loader.innerHTML = '<div class="cs-spinner-sm"></div>';
+      record.container.appendChild(loader);
+    }
+
+    try {
+      const loadingTask = pdfjsLib.getDocument({
+        data: newPdfBytes.slice(0),
+        cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/cmaps/',
+        cMapPacked: true,
+      });
+
+      this.pdfDoc = await loadingTask.promise;
+      const updatedPage = await this.pdfDoc.getPage(pageIndex + 1);
+      const vp = updatedPage.getViewport({ scale: 1.0 });
+
+      record.pdfPage = updatedPage;
+      record.unscaledWidth = vp.width;
+      record.unscaledHeight = vp.height;
+
+      await this.renderSinglePage(record);
+      this.currentPage = pageIndex + 1;
+      this.updateBottomZoomPill();
+    } finally {
+      if (loader && loader.parentNode) {
+        loader.parentNode.removeChild(loader);
+      }
     }
   }
 

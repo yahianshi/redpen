@@ -13,10 +13,22 @@ export interface StylusEngineOptions {
   onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void;
 }
 
-interface HistoryAction {
-  type: 'add' | 'erase';
-  pageIndex: number;
-  stroke: Stroke;
+export type HistoryAction =
+  | {
+      type: 'add' | 'erase';
+      pageIndex: number;
+      stroke: Stroke;
+    }
+  | {
+      type: 'rotate';
+      pageIndex: number;
+      deltaDegrees: number;
+    };
+
+export interface UndoRedoResult {
+  type: 'stroke' | 'rotate';
+  affectedPageIndex: number;
+  deltaDegrees?: number;
 }
 
 export class StylusEngine {
@@ -70,6 +82,16 @@ export class StylusEngine {
     this.redoStack = [];
     this.notifyHistory();
     this.options.onStrokeErased?.(pageIndex, stroke);
+  }
+
+  recordPageRotated(pageIndex: number, deltaDegrees: number = 90) {
+    this.undoStack.push({
+      type: 'rotate',
+      pageIndex,
+      deltaDegrees,
+    });
+    this.redoStack = [];
+    this.notifyHistory();
   }
 
   /**
@@ -335,11 +357,21 @@ export class StylusEngine {
   }
 
   /**
-   * Undo last stroke action (addition or erasure)
+   * Undo last action (stroke addition, erasure, or page rotation)
    */
-  undo(pageStrokesMap: PageStrokesMap): { affectedPageIndex: number } | null {
+  undo(pageStrokesMap: PageStrokesMap): UndoRedoResult | null {
     const action = this.undoStack.pop();
     if (!action) return null;
+
+    if (action.type === 'rotate') {
+      this.redoStack.push(action);
+      this.notifyHistory();
+      return {
+        type: 'rotate',
+        affectedPageIndex: action.pageIndex,
+        deltaDegrees: -action.deltaDegrees,
+      };
+    }
 
     const pageIndex = action.pageIndex;
     const strokes = pageStrokesMap[pageIndex] || (pageStrokesMap[pageIndex] = []);
@@ -357,15 +389,28 @@ export class StylusEngine {
 
     this.redoStack.push(action);
     this.notifyHistory();
-    return { affectedPageIndex: pageIndex };
+    return {
+      type: 'stroke',
+      affectedPageIndex: pageIndex,
+    };
   }
 
   /**
-   * Redo last undone action
+   * Redo last undone action (stroke addition, erasure, or page rotation)
    */
-  redo(pageStrokesMap: PageStrokesMap): { affectedPageIndex: number } | null {
+  redo(pageStrokesMap: PageStrokesMap): UndoRedoResult | null {
     const action = this.redoStack.pop();
     if (!action) return null;
+
+    if (action.type === 'rotate') {
+      this.undoStack.push(action);
+      this.notifyHistory();
+      return {
+        type: 'rotate',
+        affectedPageIndex: action.pageIndex,
+        deltaDegrees: action.deltaDegrees,
+      };
+    }
 
     const pageIndex = action.pageIndex;
     const strokes = pageStrokesMap[pageIndex] || (pageStrokesMap[pageIndex] = []);
@@ -383,7 +428,10 @@ export class StylusEngine {
 
     this.undoStack.push(action);
     this.notifyHistory();
-    return { affectedPageIndex: pageIndex };
+    return {
+      type: 'stroke',
+      affectedPageIndex: pageIndex,
+    };
   }
 
   /**

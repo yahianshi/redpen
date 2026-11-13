@@ -679,20 +679,28 @@ class ClassroomStylusApp {
         onHighlighterColorChange: (color) => this.stylusEngine?.updateOptions({ highlighterColor: color }),
         onHighlighterThicknessChange: (thick) => this.stylusEngine?.updateOptions({ highlighterThickness: thick }),
         onTextSizeChange: (size) => this.stylusEngine?.updateOptions({ textSize: size }),
-        onUndo: () => {
+        onUndo: async () => {
           if (!this.canvasViewer || !this.stylusEngine) return;
           const result = this.stylusEngine.undo(this.canvasViewer.getStrokes());
           if (result) {
-            this.canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
-            this.markDirtyAndDebounceSave();
+            if (result.type === 'rotate') {
+              await this.applyPageRotation(result.affectedPageIndex, result.deltaDegrees || -90, false);
+            } else {
+              this.canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
+              this.markDirtyAndDebounceSave();
+            }
           }
         },
-        onRedo: () => {
+        onRedo: async () => {
           if (!this.canvasViewer || !this.stylusEngine) return;
           const result = this.stylusEngine.redo(this.canvasViewer.getStrokes());
           if (result) {
-            this.canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
-            this.markDirtyAndDebounceSave();
+            if (result.type === 'rotate') {
+              await this.applyPageRotation(result.affectedPageIndex, result.deltaDegrees || 90, false);
+            } else {
+              this.canvasViewer.redrawSinglePageIndex(result.affectedPageIndex);
+              this.markDirtyAndDebounceSave();
+            }
           }
         },
         onTogglePenOnly: (penOnly) => {
@@ -1071,13 +1079,22 @@ class ClassroomStylusApp {
   }
 
   private async rotateCurrentPage(deltaDegrees: number = 90) {
+    if (!this.canvasViewer) return;
+    const curPage = this.canvasViewer.getCurrentPage();
+    await this.applyPageRotation(curPage - 1, deltaDegrees, true);
+  }
+
+  private async applyPageRotation(
+    pageIndex: number,
+    deltaDegrees: number = 90,
+    recordHistory: boolean = true
+  ) {
     if (!this.cleanBasePdfBytes || !this.canvasViewer || !this.sessionData) {
       this.showToast('Please wait for document to load.', 'info');
       return;
     }
 
-    const curPage = this.canvasViewer.getCurrentPage();
-    const pageIndex = curPage - 1;
+    const curPage = pageIndex + 1;
     this.toolbar?.setSyncStatus('syncing');
 
     try {
@@ -1106,12 +1123,12 @@ class ClassroomStylusApp {
               if (deltaDegrees === 90) {
                 pt.x = oldH - oldY;
                 pt.y = oldX;
-              } else if (deltaDegrees === 180) {
-                pt.x = oldW - oldX;
-                pt.y = oldH - oldY;
-              } else if (deltaDegrees === 270 || deltaDegrees === -90) {
+              } else if (deltaDegrees === -90 || deltaDegrees === 270) {
                 pt.x = oldY;
                 pt.y = oldW - oldX;
+              } else if (deltaDegrees === 180 || deltaDegrees === -180) {
+                pt.x = oldW - oldX;
+                pt.y = oldH - oldY;
               }
             }
           }
@@ -1124,29 +1141,34 @@ class ClassroomStylusApp {
                 minY: b.minX,
                 maxY: b.maxX,
               };
-            } else if (deltaDegrees === 180) {
-              stroke.bbox = {
-                minX: oldW - b.maxX,
-                maxX: oldW - b.minX,
-                minY: oldH - b.maxY,
-                maxY: oldH - b.minY,
-              };
-            } else if (deltaDegrees === 270 || deltaDegrees === -90) {
+            } else if (deltaDegrees === -90 || deltaDegrees === 270) {
               stroke.bbox = {
                 minX: b.minY,
                 maxX: b.maxY,
                 minY: oldW - b.maxX,
                 maxY: oldW - b.minX,
               };
+            } else if (deltaDegrees === 180 || deltaDegrees === -180) {
+              stroke.bbox = {
+                minX: oldW - b.maxX,
+                maxX: oldW - b.minX,
+                minY: oldH - b.maxY,
+                maxY: oldH - b.minY,
+              };
             }
           }
         }
       }
 
-      // 4. Reload PDF in viewer and stay on current page
-      await this.canvasViewer.loadPdf(this.cleanBasePdfBytes, strokesMap, curPage);
+      // 4. Record in stylusEngine history if this is a new rotation action
+      if (recordHistory && this.stylusEngine) {
+        this.stylusEngine.recordPageRotated(pageIndex, deltaDegrees);
+      }
 
-      // 5. Update cached base PDF in storage
+      // 5. Update only the rotated page in-place (keeps scroll position rock solid!)
+      await this.canvasViewer.updateRotatedPage(this.cleanBasePdfBytes, pageIndex, strokesMap);
+
+      // 6. Update cached base PDF in storage
       if (this.currentContext?.fileId) {
         await storage.saveCleanBasePdf(
           this.currentContext.fileId,
@@ -1155,9 +1177,11 @@ class ClassroomStylusApp {
         );
       }
 
-      // 6. Mark dirty and save flattened PDF to Google Drive
+      // 7. Mark dirty and save flattened PDF to Google Drive
       this.markDirtyAndDebounceSave();
-      this.showToast(`Page ${curPage} rotated 90° clockwise.`, 'info');
+      
+      const label = deltaDegrees > 0 ? `${deltaDegrees}° clockwise` : `${Math.abs(deltaDegrees)}° counter-clockwise`;
+      this.showToast(`Page ${curPage} rotated ${label}.`, 'info');
     } catch (err: any) {
       console.error('[RedPen] Error rotating page:', err);
       this.toolbar?.setSyncStatus('error', err.message);
