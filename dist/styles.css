@@ -685,13 +685,23 @@
   display: block;
 }
 
+.cs-ink-canvas,
+.cs-active-canvas {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  touch-action: none !important;
+  cursor: crosshair !important;
+}
+
 .cs-ink-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  touch-action: none;
-  cursor: crosshair;
-  pointer-events: auto;
+  pointer-events: auto !important;
+  z-index: 2 !important;
+}
+
+.cs-active-canvas {
+  pointer-events: none !important;
+  z-index: 3 !important;
 }
 
 /* Floating Inline Text Input */

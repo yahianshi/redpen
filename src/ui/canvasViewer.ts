@@ -33,6 +33,7 @@ interface PageRecord {
   container: HTMLDivElement;
   pdfCanvas: HTMLCanvasElement;
   inkCanvas: HTMLCanvasElement;
+  activeCanvas: HTMLCanvasElement;
   unscaledWidth: number;
   unscaledHeight: number;
   renderedZoom: number;
@@ -171,8 +172,12 @@ export class CanvasViewer {
         const inkCanvas = document.createElement('canvas');
         inkCanvas.className = 'cs-ink-canvas';
 
+        const activeCanvas = document.createElement('canvas');
+        activeCanvas.className = 'cs-active-canvas';
+
         pageContainer.appendChild(pdfCanvas);
         pageContainer.appendChild(inkCanvas);
+        pageContainer.appendChild(activeCanvas);
         this.pagesWrapper.appendChild(pageContainer);
 
         const record: PageRecord = {
@@ -181,6 +186,7 @@ export class CanvasViewer {
           container: pageContainer,
           pdfCanvas,
           inkCanvas,
+          activeCanvas,
           unscaledWidth: vp.width,
           unscaledHeight: vp.height,
           renderedZoom: 0,
@@ -269,11 +275,16 @@ export class CanvasViewer {
       }
     }
 
-    // 2. Setup Ink Canvas
+    // 2. Setup Ink Canvas & Dedicated Active Live-Drawing Canvas
     record.inkCanvas.width = width * dpr;
     record.inkCanvas.height = height * dpr;
     record.inkCanvas.style.width = `${width}px`;
     record.inkCanvas.style.height = `${height}px`;
+
+    record.activeCanvas.width = width * dpr;
+    record.activeCanvas.height = height * dpr;
+    record.activeCanvas.style.width = `${width}px`;
+    record.activeCanvas.style.height = `${height}px`;
 
     record.renderedZoom = zoom;
     this.redrawInkCanvas(record);
@@ -307,8 +318,36 @@ export class CanvasViewer {
 
   private attachPointerEvents(record: PageRecord) {
     const inkCanvas = record.inkCanvas;
+    const activeCanvas = record.activeCanvas;
     let isDrawing = false;
     let isPointerDown = false;
+    let rafId: number | null = null;
+    let activeStrokeToRender: Stroke | null = null;
+
+    const renderActiveStroke = () => {
+      rafId = null;
+      if (!activeStrokeToRender) return;
+      const ctx = activeCanvas.getContext('2d');
+      if (!ctx) return;
+      const dpr = window.devicePixelRatio || 1;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, activeCanvas.width, activeCanvas.height);
+      ctx.scale(dpr, dpr);
+      StylusEngine.renderSingleStroke(ctx, activeStrokeToRender, this.currentZoom);
+    };
+
+    const clearActiveCanvas = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      activeStrokeToRender = null;
+      const ctx = activeCanvas.getContext('2d');
+      if (ctx) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, activeCanvas.width, activeCanvas.height);
+      }
+    };
 
     inkCanvas.addEventListener('pointerdown', (e: PointerEvent) => {
       // Stylus touch-action: none prevents palm scrolling
@@ -336,10 +375,17 @@ export class CanvasViewer {
         this.events.onStrokeErased(record.pageIndex, result.erasedStroke);
       } else if (result.strokeStarted) {
         isDrawing = true;
+        if (result.stroke) {
+          activeStrokeToRender = result.stroke;
+          renderActiveStroke();
+        }
       }
     });
 
     inkCanvas.addEventListener('pointermove', (e: PointerEvent) => {
+      // Crucial: preventDefault on pointermove stops browser touch panning/gesture cancellation during fast swipes
+      e.preventDefault();
+
       // If tool is eraser, strictly require active pointer press (clicked or touching screen)
       if (this.stylusEngine.getOptions().activeTool === 'eraser') {
         if (!isPointerDown || (e.buttons === 0 && e.pressure === 0)) {
@@ -361,21 +407,17 @@ export class CanvasViewer {
         this.redrawInkCanvas(record);
         this.events.onStrokeErased(record.pageIndex, result.erasedStroke);
       } else if (result.stroke && isDrawing) {
-        // Live stroke update
-        const ctx = inkCanvas.getContext('2d');
-        if (ctx) {
-          const dpr = window.devicePixelRatio || 1;
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-          ctx.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
-          ctx.scale(dpr, dpr);
-
-          // Render previous committed strokes + active in-progress stroke
-          StylusEngine.renderStrokes(ctx, [...strokes, result.stroke], this.currentZoom);
+        // High-performance batched live stroke rendering on dedicated activeCanvas
+        activeStrokeToRender = result.stroke;
+        if (rafId === null) {
+          rafId = requestAnimationFrame(renderActiveStroke);
         }
       }
     });
 
     const handlePointerUp = (e: PointerEvent) => {
+      clearActiveCanvas();
+
       isPointerDown = false;
       if (!isDrawing && this.stylusEngine.getOptions().activeTool !== 'eraser') return;
       isDrawing = false;
@@ -391,8 +433,11 @@ export class CanvasViewer {
 
     inkCanvas.addEventListener('pointerup', handlePointerUp);
     inkCanvas.addEventListener('pointercancel', handlePointerUp);
-    inkCanvas.addEventListener('pointerleave', () => {
-      isPointerDown = false;
+    inkCanvas.addEventListener('pointerleave', (e: PointerEvent) => {
+      // Only reset if not currently drawing with captured pointer
+      if (!isDrawing && e.buttons === 0) {
+        isPointerDown = false;
+      }
     });
   }
 

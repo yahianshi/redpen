@@ -100,9 +100,10 @@ export class StylusEngine {
   getCanvasPoint(
     e: PointerEvent,
     canvas: HTMLCanvasElement,
-    zoom: number
+    zoom: number,
+    cachedRect?: DOMRect
   ): StrokePoint {
-    const rect = canvas.getBoundingClientRect();
+    const rect = cachedRect || canvas.getBoundingClientRect();
     const rawX = e.clientX - rect.left;
     const rawY = e.clientY - rect.top;
 
@@ -128,13 +129,19 @@ export class StylusEngine {
     canvas: HTMLCanvasElement,
     zoom: number,
     pageStrokes: Stroke[]
-  ): { strokeStarted: boolean; erasedStroke?: Stroke } {
+  ): { strokeStarted: boolean; erasedStroke?: Stroke; stroke?: Stroke } {
     // Palm rejection: If pen-only mode is enabled, reject touch/mouse
     if (this.options.penOnlyMode && e.pointerType !== 'pen') {
       return { strokeStarted: false };
     }
 
-    canvas.setPointerCapture(e.pointerId);
+    if (typeof canvas.setPointerCapture === 'function') {
+      try {
+        canvas.setPointerCapture(e.pointerId);
+      } catch {
+        // Ignored if capture unsupported or pointer already released
+      }
+    }
     this.activePageIndex = pageIndex;
 
     const pt = this.getCanvasPoint(e, canvas, zoom);
@@ -165,7 +172,7 @@ export class StylusEngine {
       timestamp: Date.now(),
     };
 
-    return { strokeStarted: true };
+    return { strokeStarted: true, stroke: this.currentStroke };
   }
 
   movePointer(
@@ -179,6 +186,9 @@ export class StylusEngine {
       return {};
     }
 
+    // Cache canvas bounding rect once per pointermove to eliminate synchronous layout reflows
+    const rect = canvas.getBoundingClientRect();
+
     // Coalesced events for high-frequency styluses (120Hz/240Hz)
     const coalescedEvents =
       typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [e];
@@ -191,7 +201,7 @@ export class StylusEngine {
       }
       for (const ev of events) {
         if (ev.buttons === 0 && ev.pressure === 0) continue;
-        const pt = this.getCanvasPoint(ev, canvas, zoom);
+        const pt = this.getCanvasPoint(ev, canvas, zoom, rect);
         const erased = this.checkAndErase(pt, pageIndex, pageStrokes, zoom);
         if (erased) {
           return { erasedStroke: erased };
@@ -205,7 +215,7 @@ export class StylusEngine {
     }
 
     for (const ev of events) {
-      const pt = this.getCanvasPoint(ev, canvas, zoom);
+      const pt = this.getCanvasPoint(ev, canvas, zoom, rect);
       this.currentStroke.points.push(pt);
 
       // Update stroke bounding box
@@ -224,7 +234,7 @@ export class StylusEngine {
     pageIndex: number,
     canvas: HTMLCanvasElement
   ): Stroke | null {
-    if (canvas.hasPointerCapture(e.pointerId)) {
+    if (typeof canvas.hasPointerCapture === 'function' && canvas.hasPointerCapture(e.pointerId)) {
       try {
         canvas.releasePointerCapture(e.pointerId);
       } catch {
@@ -435,6 +445,98 @@ export class StylusEngine {
   }
 
   /**
+   * Renders a single stroke onto a 2D canvas context with quadratic Bezier smoothing.
+   */
+  static renderSingleStroke(
+    ctx: CanvasRenderingContext2D,
+    stroke: Stroke,
+    zoom: number
+  ) {
+    if (!stroke.points || stroke.points.length === 0) return;
+
+    ctx.save();
+
+    const isHighlighter = stroke.tool === 'highlighter';
+    if (isHighlighter) {
+      ctx.globalAlpha = 0.35;
+      ctx.globalCompositeOperation = 'multiply';
+    } else {
+      ctx.globalAlpha = stroke.opacity ?? 1.0;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    ctx.strokeStyle = stroke.color;
+    ctx.fillStyle = stroke.color;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (stroke.tool === 'text' && stroke.text) {
+      const pt = stroke.points[0];
+      const fontSize = (stroke.fontSize || 16) * zoom;
+      ctx.font = `bold ${fontSize}px 'Google Sans', Roboto, sans-serif`;
+      ctx.fillStyle = stroke.color;
+      ctx.textBaseline = 'top';
+      const lines = stroke.text.split('\n');
+      lines.forEach((line, lineIdx) => {
+        ctx.fillText(line, pt.x * zoom, pt.y * zoom + lineIdx * fontSize * 1.25);
+      });
+      ctx.restore();
+      return;
+    }
+
+    if (stroke.points.length === 1) {
+      const pt = stroke.points[0];
+      const r = ((pt.width || stroke.baseThickness) * zoom) / 2;
+      ctx.beginPath();
+      ctx.arc(pt.x * zoom, pt.y * zoom, Math.max(1, r), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
+    // Bezier curve smoothing through midpoints
+    const pts = stroke.points;
+    ctx.beginPath();
+
+    const p0 = pts[0];
+    ctx.lineWidth = Math.max(1, (p0.width || stroke.baseThickness) * zoom);
+
+    if (pts.length === 2) {
+      const p1 = pts[1];
+      ctx.moveTo(p0.x * zoom, p0.y * zoom);
+      ctx.lineTo(p1.x * zoom, p1.y * zoom);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+
+    // Start at first point
+    ctx.moveTo(p0.x * zoom, p0.y * zoom);
+
+    for (let i = 1; i < pts.length - 1; i++) {
+      const curr = pts[i];
+      const next = pts[i + 1];
+      const midX = ((curr.x + next.x) / 2) * zoom;
+      const midY = ((curr.y + next.y) / 2) * zoom;
+
+      ctx.lineWidth = Math.max(1, (curr.width || stroke.baseThickness) * zoom);
+      ctx.quadraticCurveTo(curr.x * zoom, curr.y * zoom, midX, midY);
+    }
+
+    const last = pts[pts.length - 1];
+    const secondLast = pts[pts.length - 2];
+    ctx.quadraticCurveTo(
+      secondLast.x * zoom,
+      secondLast.y * zoom,
+      last.x * zoom,
+      last.y * zoom
+    );
+
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /**
    * Renders a list of strokes onto a 2D canvas context with quadratic Bezier smoothing.
    */
   static renderStrokes(
@@ -443,88 +545,7 @@ export class StylusEngine {
     zoom: number
   ) {
     for (const stroke of strokes) {
-      if (!stroke.points || stroke.points.length === 0) continue;
-
-      ctx.save();
-
-      const isHighlighter = stroke.tool === 'highlighter';
-      if (isHighlighter) {
-        ctx.globalAlpha = 0.35;
-        ctx.globalCompositeOperation = 'multiply';
-      } else {
-        ctx.globalAlpha = stroke.opacity ?? 1.0;
-        ctx.globalCompositeOperation = 'source-over';
-      }
-
-      ctx.strokeStyle = stroke.color;
-      ctx.fillStyle = stroke.color;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      if (stroke.tool === 'text' && stroke.text) {
-        const pt = stroke.points[0];
-        const fontSize = (stroke.fontSize || 16) * zoom;
-        ctx.font = `bold ${fontSize}px 'Google Sans', Roboto, sans-serif`;
-        ctx.fillStyle = stroke.color;
-        ctx.textBaseline = 'top';
-        const lines = stroke.text.split('\n');
-        lines.forEach((line, lineIdx) => {
-          ctx.fillText(line, pt.x * zoom, pt.y * zoom + lineIdx * fontSize * 1.25);
-        });
-        ctx.restore();
-        continue;
-      }
-
-      if (stroke.points.length === 1) {
-        const pt = stroke.points[0];
-        const r = ((pt.width || stroke.baseThickness) * zoom) / 2;
-        ctx.beginPath();
-        ctx.arc(pt.x * zoom, pt.y * zoom, Math.max(1, r), 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-        continue;
-      }
-
-      // Bezier curve smoothing through midpoints
-      const pts = stroke.points;
-      ctx.beginPath();
-
-      const p0 = pts[0];
-      ctx.lineWidth = Math.max(1, (p0.width || stroke.baseThickness) * zoom);
-
-      if (pts.length === 2) {
-        const p1 = pts[1];
-        ctx.moveTo(p0.x * zoom, p0.y * zoom);
-        ctx.lineTo(p1.x * zoom, p1.y * zoom);
-        ctx.stroke();
-        ctx.restore();
-        continue;
-      }
-
-      // Start at first point
-      ctx.moveTo(p0.x * zoom, p0.y * zoom);
-
-      for (let i = 1; i < pts.length - 1; i++) {
-        const curr = pts[i];
-        const next = pts[i + 1];
-        const midX = ((curr.x + next.x) / 2) * zoom;
-        const midY = ((curr.y + next.y) / 2) * zoom;
-
-        ctx.lineWidth = Math.max(1, (curr.width || stroke.baseThickness) * zoom);
-        ctx.quadraticCurveTo(curr.x * zoom, curr.y * zoom, midX, midY);
-      }
-
-      const last = pts[pts.length - 1];
-      const secondLast = pts[pts.length - 2];
-      ctx.quadraticCurveTo(
-        secondLast.x * zoom,
-        secondLast.y * zoom,
-        last.x * zoom,
-        last.y * zoom
-      );
-
-      ctx.stroke();
-      ctx.restore();
+      StylusEngine.renderSingleStroke(ctx, stroke, zoom);
     }
   }
 }

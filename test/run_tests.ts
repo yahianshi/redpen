@@ -439,6 +439,79 @@ async function runTestSuite() {
     failed++;
   }
 
+  // --- Test 7: Stylus Fast-Swipe & Active Layer Pipeline ---
+  console.log('\n--- Suite 7: Stylus Fast-Swipe & 120Hz Coalesced Event Pipeline ---');
+  try {
+    const fastEngine = new StylusEngine({ penOnlyMode: false, activeTool: 'pen' });
+    const dummyCanvas: any = {
+      getBoundingClientRect: () => ({ left: 50, top: 100, width: 800, height: 1000 }),
+      setPointerCapture: () => {},
+      releasePointerCapture: () => {},
+      hasPointerCapture: () => true,
+    };
+
+    // Test startPointer with stroke creation
+    const downEvent: any = {
+      clientX: 150,
+      clientY: 200,
+      pressure: 0.8,
+      pointerId: 1,
+      pointerType: 'pen',
+    };
+    const startRes = fastEngine.startPointer(downEvent, 0, dummyCanvas, 1.0, []);
+    assert(startRes.strokeStarted === true, 'Fast stroke started successfully');
+    assert(startRes.stroke !== undefined, 'startPointer returns active stroke reference');
+
+    // Simulate high-frequency 120Hz/240Hz coalesced events during fast swipe
+    const cachedRect = dummyCanvas.getBoundingClientRect();
+    const coalescedEvents = [
+      { clientX: 160, clientY: 210, pressure: 0.8, buttons: 1 },
+      { clientX: 175, clientY: 225, pressure: 0.8, buttons: 1 },
+      { clientX: 195, clientY: 245, pressure: 0.7, buttons: 1 },
+      { clientX: 220, clientY: 270, pressure: 0.6, buttons: 1 },
+    ];
+    const moveEvent: any = {
+      clientX: 220,
+      clientY: 270,
+      pressure: 0.6,
+      buttons: 1,
+      getCoalescedEvents: () => coalescedEvents,
+    };
+
+    const moveRes = fastEngine.movePointer(moveEvent, 0, dummyCanvas, 1.0, []);
+    assert(moveRes.stroke !== undefined, 'movePointer returns updated active stroke');
+    assert(moveRes.stroke!.points.length === 5, 'All coalesced fast-swipe points accumulated without dropping');
+
+    // Test cachedRect acceleration in getCanvasPoint
+    const ptCached = fastEngine.getCanvasPoint(moveEvent, dummyCanvas, 1.0, cachedRect);
+    assert(ptCached.x === 170 && ptCached.y === 170, 'getCanvasPoint with cachedRect accurately computes relative point');
+
+    // Finish stroke
+    const upEvent: any = { clientX: 220, clientY: 270, pressure: 0, pointerId: 1 };
+    const finishedStroke = fastEngine.endPointer(upEvent, 0, dummyCanvas);
+    assert(finishedStroke !== null, 'endPointer successfully finalizes fast-swipe stroke');
+    assert(finishedStroke!.points.length === 5, 'Final stroke preserves complete trajectory');
+
+    // Test StylusEngine.renderSingleStroke does not throw
+    let drawOpCount = 0;
+    const mockCtx: any = {
+      save: () => {},
+      restore: () => {},
+      beginPath: () => {},
+      moveTo: () => {},
+      lineTo: () => {},
+      quadraticCurveTo: () => { drawOpCount++; },
+      stroke: () => {},
+      fill: () => {},
+      arc: () => {},
+    };
+    StylusEngine.renderSingleStroke(mockCtx, finishedStroke!, 1.0);
+    assert(drawOpCount > 0, 'StylusEngine.renderSingleStroke draws smooth quadratic curves across points');
+  } catch (e: any) {
+    console.error('Fast swipe test error:', e);
+    failed++;
+  }
+
   console.log(`\n========================================`);
   console.log(`Summary: ${passed} passed, ${failed} failed`);
   console.log(`========================================\n`);
