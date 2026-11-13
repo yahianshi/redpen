@@ -10,6 +10,7 @@ export interface ToolbarEvents {
   onUndo: () => void;
   onRedo: () => void;
   onTogglePenOnly: (penOnly: boolean) => void;
+  onRotatePage?: () => void;
   onRestoreOriginal: () => void;
   onOpenDedicatedTab?: () => void;
   onClose: () => void;
@@ -272,6 +273,12 @@ export class GradingToolbar {
           <button type="button" class="cs-pill-btn cs-toggle-penmode ${this.penOnlyMode ? 'active' : ''}" title="${this.penOnlyMode ? 'Palm rejection ON: Accepts Stylus only. Click to allow touch/mouse.' : 'Palm rejection OFF: Accepts Stylus and Touch. Click to lock to Stylus only.'}">
             <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             <span class="cs-action-label">${this.penOnlyMode ? 'Stylus Only' : 'Stylus + Touch'}</span>
+          </button>
+
+          <!-- Rotate Page Button -->
+          <button type="button" class="cs-pill-btn cs-btn-rotate" title="Rotate current page 90° clockwise (R) - Permanently edits and rotates PDF">
+            <svg class="cs-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            <span class="cs-action-label">↻ Rotate</span>
           </button>
 
           <!-- Reset to Original -->
@@ -695,6 +702,12 @@ export class GradingToolbar {
         return;
       }
 
+      // Rotate page
+      if (target.closest('.cs-btn-rotate')) {
+        this.events.onRotatePage?.();
+        return;
+      }
+
       // Restore original confirmation
       if (target.closest('.cs-btn-restore')) {
         this.showRestoreConfirmation();
@@ -849,6 +862,14 @@ export class GradingToolbar {
         e.stopImmediatePropagation();
         if (e.repeat) return;
         this.setActiveTool('text');
+      }
+      // Hotkey: R for Rotate Page
+      else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        if (e.repeat) return;
+        this.events.onRotatePage?.();
       }
       // Hotkey: Next Page / Scroll Right (ArrowRight, PageDown, ])
       else if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ']')) {

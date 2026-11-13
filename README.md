@@ -32,6 +32,7 @@ Grading student PDF assignments in Google Classroom typically requires third-par
 - ⚡ **Zero External Servers**: RedPen runs 100% locally in your browser. All API calls communicate directly with Google Drive and Classroom using your own OAuth credentials.
 - 🖊️ **Stylus & Pressure Sensitivity**: 120Hz-240Hz pointer coalescing, pressure-sensitive line weighting, and palm rejection for Apple Pencil, Surface Pen, and USI Chromebook styluses.
 - 🛡️ **Non-Compounding Vector Baking**: Flattening uses `pdf-lib` to bake annotations onto a clean cached base. Erasing a stroke removes it from the Drive PDF without degrading document quality.
+- ↻ **Permanent PDF Page Rotation**: Rotate sideways or upside-down student submissions 90° directly from the top bar. Rotations are edited into the PDF's internal page dictionary and saved directly to Google Drive.
 - ↺ **One-Click Original Restore**: Google Drive's initial revision is pinned (`keepForever: true`). Revert to the student's unannotated original upload at any time.
 
 ---
@@ -59,6 +60,7 @@ RedPen follows a minimalist dark interface (`#13181c`) with signature red accent
 | <kbd>H</kbd> | Activate **Highlighter** |
 | <kbd>T</kbd> | Activate **Text** tool |
 | <kbd>E</kbd> | Activate **Eraser** |
+| <kbd>R</kbd> | **Rotate Current Page 90°** (bakes permanently into PDF file) |
 | <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Cmd</kbd> + <kbd>Z</kbd> | **Undo** last stroke or action |
 | <kbd>Ctrl</kbd> + <kbd>Y</kbd> / <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | **Redo** undone action |
 | <kbd>+</kbd> / <kbd>=</kbd> | Zoom In |

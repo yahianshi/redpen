@@ -358,6 +358,69 @@ async function runTestSuite() {
     failed++;
   }
 
+  // --- Test 6: Permanent PDF Page Rotation & Flattening on Rotated Pages ---
+  console.log('\n--- Suite 6: PDF Page Rotation & Flattening ---');
+  try {
+    const baseDoc = await PDFDocument.create();
+    baseDoc.addPage([600, 800]); // Page 0
+    baseDoc.addPage([600, 800]); // Page 1
+    const baseBytes = (await baseDoc.save()).buffer;
+
+    // Test 1: rotatePage rotates page 0 by 90 degrees
+    const rot90Bytes = await PdfFlattener.rotatePage(baseBytes, 0, 90);
+    const docRot90 = await PDFDocument.load(rot90Bytes);
+    assert(docRot90.getPage(0).getRotation().angle === 90, 'Page 0 successfully rotated to 90 degrees in PDF file');
+    assert(docRot90.getPage(1).getRotation().angle === 0, 'Page 1 remains at 0 degrees');
+
+    // Test 2: rotatePage by another 90 degrees reaches 180 degrees
+    const rot180Bytes = await PdfFlattener.rotatePage(rot90Bytes, 0, 90);
+    const docRot180 = await PDFDocument.load(rot180Bytes);
+    assert(docRot180.getPage(0).getRotation().angle === 180, 'Page 0 rotated to 180 degrees in PDF file');
+
+    // Test 3: rotatePage completes full 360 cycle back to 0 degrees
+    const rot360Bytes = await PdfFlattener.rotatePage(rot180Bytes, 0, 180);
+    const docRot360 = await PDFDocument.load(rot360Bytes);
+    assert(docRot360.getPage(0).getRotation().angle === 0, 'Page 0 rotated back to 0 degrees (360 mod 360)');
+
+    // Test 4: Flatten strokes onto rotated page (rot = 90)
+    const testStroke: Stroke = {
+      id: 'rot_stroke_1',
+      tool: 'pen',
+      color: '#f0393c',
+      baseThickness: 4,
+      opacity: 1.0,
+      points: [
+        { x: 100, y: 150, pressure: 0.5, width: 4 },
+        { x: 200, y: 250, pressure: 0.5, width: 4 },
+      ],
+      bbox: { minX: 100, minY: 150, maxX: 200, maxY: 250 },
+      timestamp: Date.now(),
+    };
+
+    const textStroke: Stroke = {
+      id: 'rot_stroke_text',
+      tool: 'text',
+      color: '#3b82f6',
+      baseThickness: 2,
+      text: 'Good job!',
+      fontSize: 18,
+      points: [{ x: 120, y: 180, pressure: 0.5, width: 2 }],
+      bbox: { minX: 120, minY: 180, maxX: 220, maxY: 200 },
+      timestamp: Date.now(),
+    };
+
+    const flattenedRotated = await PdfFlattener.flattenStrokes(rot90Bytes, {
+      0: [testStroke, textStroke],
+    });
+    assert(flattenedRotated.length > rot90Bytes.byteLength, 'Strokes and text flattened cleanly onto 90° rotated PDF');
+
+    const verifiedDoc = await PDFDocument.load(flattenedRotated);
+    assert(verifiedDoc.getPage(0).getRotation().angle === 90, 'Flattened output PDF preserves page 90° rotation permanently');
+  } catch (e: any) {
+    console.error('Page rotation test error:', e);
+    failed++;
+  }
+
   console.log(`\n========================================`);
   console.log(`Summary: ${passed} passed, ${failed} failed`);
   console.log(`========================================\n`);

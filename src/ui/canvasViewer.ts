@@ -113,7 +113,11 @@ export class CanvasViewer {
     return this.pageStrokesMap;
   }
 
-  async loadPdf(pdfBytes: ArrayBuffer, initialStrokes: PageStrokesMap) {
+  getPageRecord(pageIndex: number): PageRecord | undefined {
+    return this.pageRecords.find((r) => r.pageIndex === pageIndex);
+  }
+
+  async loadPdf(pdfBytes: ArrayBuffer, initialStrokes: PageStrokesMap, initialPageNum?: number) {
     this.pageStrokesMap = initialStrokes;
     this.pagesWrapper.innerHTML = '';
     this.pageRecords = [];
@@ -137,16 +141,18 @@ export class CanvasViewer {
 
       this.pdfDoc = await loadingTask.promise;
       this.totalPages = this.pdfDoc.numPages;
-      this.currentPage = 1;
+      this.currentPage = initialPageNum || 1;
 
       this.pagesWrapper.innerHTML = '';
 
-      // Determine initial zoom to fit container width comfortably
-      const containerWidth = this.scrollContainer.clientWidth || 900;
-      const firstPage = await this.pdfDoc.getPage(1);
-      const viewport = firstPage.getViewport({ scale: 1.0 });
-      const fitZoom = Math.min(1.5, Math.max(0.6, (containerWidth - 64) / viewport.width));
-      this.currentZoom = Math.round(fitZoom * 100) / 100;
+      // Determine initial zoom to fit container width comfortably if not already set
+      if (!this.currentZoom || this.currentZoom === 1.0) {
+        const containerWidth = this.scrollContainer.clientWidth || 900;
+        const firstPage = await this.pdfDoc.getPage(1);
+        const viewport = firstPage.getViewport({ scale: 1.0 });
+        const fitZoom = Math.min(1.5, Math.max(0.6, (containerWidth - 64) / viewport.width));
+        this.currentZoom = Math.round(fitZoom * 100) / 100;
+      }
 
       // Create page containers
       for (let i = 1; i <= this.totalPages; i++) {
@@ -188,6 +194,9 @@ export class CanvasViewer {
       }
 
       await this.renderAllPages();
+      if (initialPageNum && initialPageNum > 1) {
+        this.scrollToPage(initialPageNum);
+      }
       this.updateBottomZoomPill();
     } catch (err: any) {
       console.error('[RedPen] Failed to load PDF:', err);

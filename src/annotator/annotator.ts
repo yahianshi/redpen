@@ -80,6 +80,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         stylusEngine.updateOptions({ penOnlyMode: penOnly });
         storage.updateSettings({ penOnlyMode: penOnly });
       },
+      onRotatePage: async () => {
+        if (!cleanBasePdfBytes || !sessionData) return;
+        const curPage = canvasViewer.getCurrentPage();
+        const pageIndex = curPage - 1;
+        toolbar.setSyncStatus('syncing');
+
+        try {
+          const record = canvasViewer.getPageRecord(pageIndex);
+          const oldW = record ? record.unscaledWidth : 0;
+          const oldH = record ? record.unscaledHeight : 0;
+
+          const newPdfBytes = await PdfFlattener.rotatePage(
+            cleanBasePdfBytes,
+            pageIndex,
+            90
+          );
+          cleanBasePdfBytes = newPdfBytes;
+
+          const strokesMap = canvasViewer.getStrokes();
+          const pageStrokes = strokesMap[pageIndex];
+          if (pageStrokes && pageStrokes.length > 0 && oldW > 0 && oldH > 0) {
+            for (const stroke of pageStrokes) {
+              if (stroke.points) {
+                for (const pt of stroke.points) {
+                  const oldX = pt.x;
+                  const oldY = pt.y;
+                  pt.x = oldH - oldY;
+                  pt.y = oldX;
+                }
+              }
+              if (stroke.bbox) {
+                const b = stroke.bbox;
+                stroke.bbox = {
+                  minX: oldH - b.maxY,
+                  maxX: oldH - b.minY,
+                  minY: b.minX,
+                  maxY: b.maxX,
+                };
+              }
+            }
+          }
+
+          await canvasViewer.loadPdf(cleanBasePdfBytes, strokesMap, curPage);
+          await storage.saveCleanBasePdf(fileId, cleanBasePdfBytes, originalRevisionId);
+          markDirtyAndDebounceSave();
+        } catch (err: any) {
+          console.error('[RedPen] Error rotating page in dedicated tab:', err);
+          toolbar.setSyncStatus('error', err.message);
+        }
+      },
       onRestoreOriginal: async () => {
         if (!sessionData || !cleanBasePdfBytes) return;
         toolbar.setSyncStatus('syncing');

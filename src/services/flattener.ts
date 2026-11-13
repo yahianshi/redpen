@@ -1,5 +1,26 @@
-import { PDFDocument, rgb, LineCapStyle, RGB } from 'pdf-lib';
+import { PDFDocument, rgb, LineCapStyle, RGB, degrees } from 'pdf-lib';
 import { PageStrokesMap, Stroke, StrokePoint } from '../types';
+
+/**
+ * Maps rendered screen/canvas display coordinates to pdf-lib internal page coordinates,
+ * taking into account the page's current rotation angle (0°, 90°, 180°, 270°).
+ */
+function mapDisplayToPdf(
+  x: number,
+  y: number,
+  rotation: number,
+  pageWidth: number,
+  pageHeight: number
+): { x: number; y: number } {
+  if (rotation === 90) {
+    return { x: y, y: x };
+  } else if (rotation === 180) {
+    return { x: pageWidth - x, y: y };
+  } else if (rotation === 270) {
+    return { x: pageWidth - y, y: pageHeight - x };
+  }
+  return { x: x, y: pageHeight - y };
+}
 
 /**
  * Parses hex color strings (e.g. "#ef4444" or "#f00") or "rgb(...)" into a pdf-lib RGB color object.
@@ -58,7 +79,8 @@ export class PdfFlattener {
       }
 
       const page = pdfDoc.getPage(pageIndex);
-      const { height: pageHeight } = page.getSize();
+      const { width: pageWidth, height: pageHeight } = page.getSize();
+      const rotation = (page.getRotation().angle || 0) % 360;
 
       for (const stroke of strokes) {
         if (!stroke.points || stroke.points.length === 0) continue;
@@ -70,13 +92,19 @@ export class PdfFlattener {
           const pt = stroke.points[0];
           const fontSize = stroke.fontSize || 16;
           const lines = stroke.text.split('\n');
+          const textRotation = (360 - rotation) % 360;
+
           lines.forEach((line, lIdx) => {
+            const dispX = pt.x;
+            const dispY = pt.y + (lIdx + 1) * fontSize * 1.15;
+            const pdfPt = mapDisplayToPdf(dispX, dispY, rotation, pageWidth, pageHeight);
             page.drawText(line, {
-              x: pt.x,
-              y: pageHeight - pt.y - (lIdx + 1) * fontSize * 1.15,
+              x: pdfPt.x,
+              y: pdfPt.y,
               size: fontSize,
               color,
               opacity,
+              rotate: degrees(textRotation),
             });
           });
           continue;
@@ -86,9 +114,10 @@ export class PdfFlattener {
           // Single dot
           const pt = stroke.points[0];
           const radius = Math.max(1, (pt.width || stroke.baseThickness) / 2);
+          const pdfPt = mapDisplayToPdf(pt.x, pt.y, rotation, pageWidth, pageHeight);
           page.drawCircle({
-            x: pt.x,
-            y: pageHeight - pt.y,
+            x: pdfPt.x,
+            y: pdfPt.y,
             size: radius,
             color,
             opacity,
@@ -102,16 +131,12 @@ export class PdfFlattener {
           const p2 = stroke.points[i + 1];
 
           const segThickness = Math.max(0.5, (p1.width + p2.width) / 2 || stroke.baseThickness);
+          const pdfP1 = mapDisplayToPdf(p1.x, p1.y, rotation, pageWidth, pageHeight);
+          const pdfP2 = mapDisplayToPdf(p2.x, p2.y, rotation, pageWidth, pageHeight);
 
           page.drawLine({
-            start: {
-              x: p1.x,
-              y: pageHeight - p1.y,
-            },
-            end: {
-              x: p2.x,
-              y: pageHeight - p2.y,
-            },
+            start: pdfP1,
+            end: pdfP2,
             thickness: segThickness,
             color,
             opacity,
@@ -122,5 +147,29 @@ export class PdfFlattener {
     }
 
     return await pdfDoc.save();
+  }
+
+  /**
+   * Modifies the underlying PDF by rotating the specified page by deltaDegrees (default +90° clockwise).
+   * Modifies the PDF dictionary so the page is permanently edited and rotated when viewed or downloaded.
+   */
+  static async rotatePage(
+    pdfBytes: ArrayBuffer,
+    pageIndex: number,
+    deltaDegrees: number = 90
+  ): Promise<ArrayBuffer> {
+    const pdfDoc = await PDFDocument.load(pdfBytes.slice(0), {
+      ignoreEncryption: true,
+    });
+    const pageCount = pdfDoc.getPageCount();
+    if (pageIndex < 0 || pageIndex >= pageCount) {
+      throw new Error(`Page index ${pageIndex} is out of bounds (total pages: ${pageCount})`);
+    }
+    const page = pdfDoc.getPage(pageIndex);
+    const currentRot = page.getRotation().angle || 0;
+    const newRot = (currentRot + deltaDegrees + 360) % 360;
+    page.setRotation(degrees(newRot));
+    const saved = await pdfDoc.save();
+    return saved.buffer as ArrayBuffer;
   }
 }

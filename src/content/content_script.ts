@@ -699,6 +699,7 @@ class ClassroomStylusApp {
           this.stylusEngine?.updateOptions({ penOnlyMode: penOnly });
           storage.updateSettings({ penOnlyMode: penOnly });
         },
+        onRotatePage: () => this.rotateCurrentPage(90),
         onRestoreOriginal: () => this.restoreOriginalSubmission(),
         onOpenDedicatedTab: () => {
           const fId = this.currentContext?.fileId || fileIdOverride;
@@ -1066,6 +1067,101 @@ class ClassroomStylusApp {
       console.error('[RedPen] Failed to restore original:', err);
       this.toolbar?.setSyncStatus('error', err.message);
       this.showToast(`Restore failed: ${err.message}`, 'error');
+    }
+  }
+
+  private async rotateCurrentPage(deltaDegrees: number = 90) {
+    if (!this.cleanBasePdfBytes || !this.canvasViewer || !this.sessionData) {
+      this.showToast('Please wait for document to load.', 'info');
+      return;
+    }
+
+    const curPage = this.canvasViewer.getCurrentPage();
+    const pageIndex = curPage - 1;
+    this.toolbar?.setSyncStatus('syncing');
+
+    try {
+      // 1. Capture unscaled dimensions before rotation to transform existing strokes
+      const record = this.canvasViewer.getPageRecord(pageIndex);
+      const oldW = record ? record.unscaledWidth : 0;
+      const oldH = record ? record.unscaledHeight : 0;
+
+      // 2. Rotate the page in the underlying PDF bytes using pdf-lib
+      const newPdfBytes = await PdfFlattener.rotatePage(
+        this.cleanBasePdfBytes,
+        pageIndex,
+        deltaDegrees
+      );
+      this.cleanBasePdfBytes = newPdfBytes;
+
+      // 3. Transform existing strokes on this page so they rotate with the content
+      const strokesMap = this.canvasViewer.getStrokes();
+      const pageStrokes = strokesMap[pageIndex];
+      if (pageStrokes && pageStrokes.length > 0 && oldW > 0 && oldH > 0) {
+        for (const stroke of pageStrokes) {
+          if (stroke.points) {
+            for (const pt of stroke.points) {
+              const oldX = pt.x;
+              const oldY = pt.y;
+              if (deltaDegrees === 90) {
+                pt.x = oldH - oldY;
+                pt.y = oldX;
+              } else if (deltaDegrees === 180) {
+                pt.x = oldW - oldX;
+                pt.y = oldH - oldY;
+              } else if (deltaDegrees === 270 || deltaDegrees === -90) {
+                pt.x = oldY;
+                pt.y = oldW - oldX;
+              }
+            }
+          }
+          if (stroke.bbox) {
+            const b = stroke.bbox;
+            if (deltaDegrees === 90) {
+              stroke.bbox = {
+                minX: oldH - b.maxY,
+                maxX: oldH - b.minY,
+                minY: b.minX,
+                maxY: b.maxX,
+              };
+            } else if (deltaDegrees === 180) {
+              stroke.bbox = {
+                minX: oldW - b.maxX,
+                maxX: oldW - b.minX,
+                minY: oldH - b.maxY,
+                maxY: oldH - b.minY,
+              };
+            } else if (deltaDegrees === 270 || deltaDegrees === -90) {
+              stroke.bbox = {
+                minX: b.minY,
+                maxX: b.maxY,
+                minY: oldW - b.maxX,
+                maxY: oldW - b.minX,
+              };
+            }
+          }
+        }
+      }
+
+      // 4. Reload PDF in viewer and stay on current page
+      await this.canvasViewer.loadPdf(this.cleanBasePdfBytes, strokesMap, curPage);
+
+      // 5. Update cached base PDF in storage
+      if (this.currentContext?.fileId) {
+        await storage.saveCleanBasePdf(
+          this.currentContext.fileId,
+          this.cleanBasePdfBytes,
+          this.originalRevisionId
+        );
+      }
+
+      // 6. Mark dirty and save flattened PDF to Google Drive
+      this.markDirtyAndDebounceSave();
+      this.showToast(`Page ${curPage} rotated 90° clockwise.`, 'info');
+    } catch (err: any) {
+      console.error('[RedPen] Error rotating page:', err);
+      this.toolbar?.setSyncStatus('error', err.message);
+      this.showToast(`Failed to rotate page: ${err.message}`, 'error');
     }
   }
 
