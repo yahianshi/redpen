@@ -134,8 +134,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     onZoomIn: () => canvasViewer.zoomIn(),
     onZoomOut: () => canvasViewer.zoomOut(),
     onZoomReset: () => canvasViewer.resetZoom(),
-    onPrevPage: () => canvasViewer.prevPage(),
-    onNextPage: () => canvasViewer.nextPage(),
+    onPrevPage: () => canvasViewer.scrollHorizontallyOrPage('prev'),
+    onNextPage: () => canvasViewer.scrollHorizontallyOrPage('next'),
     onScrollHalfPageDown: () => canvasViewer.scrollHalfPageDown(),
     onScrollHalfPageUp: () => canvasViewer.scrollHalfPageUp(),
   }, { showDedicatedTabButton: false, initialPenOnlyMode: settings.penOnlyMode });

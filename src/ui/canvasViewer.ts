@@ -645,9 +645,56 @@ export class CanvasViewer {
   scrollToPage(pageNum: number) {
     const record = this.pageRecords.find((r) => r.pageIndex === pageNum - 1);
     if (record) {
-      record.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (typeof this.scrollContainer.getBoundingClientRect === 'function' && typeof record.container.getBoundingClientRect === 'function') {
+        const containerRect = this.scrollContainer.getBoundingClientRect();
+        const pageRect = record.container.getBoundingClientRect();
+        const relativeTop = pageRect.top - containerRect.top + this.scrollContainer.scrollTop;
+        if (typeof this.scrollContainer.scrollTo === 'function') {
+          this.scrollContainer.scrollTo({ top: Math.max(0, relativeTop - 16), behavior: 'smooth' });
+        } else {
+          this.scrollContainer.scrollTop = Math.max(0, relativeTop - 16);
+        }
+      } else if (typeof record.container.offsetTop === 'number') {
+        if (typeof this.scrollContainer.scrollTo === 'function') {
+          this.scrollContainer.scrollTo({ top: Math.max(0, record.container.offsetTop - 16), behavior: 'smooth' });
+        } else {
+          this.scrollContainer.scrollTop = Math.max(0, record.container.offsetTop - 16);
+        }
+      }
       this.currentPage = pageNum;
       this.updateBottomZoomPill();
+    }
+  }
+
+  scrollHorizontallyOrPage(direction: 'next' | 'prev') {
+    const delta = direction === 'next' ? 140 : -140;
+    const maxScrollLeft = this.scrollContainer.scrollWidth - this.scrollContainer.clientWidth;
+
+    // If zoomed in and horizontal scroll is available, pan horizontally first
+    if (maxScrollLeft > 20) {
+      const curLeft = this.scrollContainer.scrollLeft;
+      if (direction === 'next' && curLeft < maxScrollLeft - 10) {
+        if (typeof this.scrollContainer.scrollBy === 'function') {
+          this.scrollContainer.scrollBy({ left: delta, behavior: 'smooth' });
+        } else {
+          this.scrollContainer.scrollLeft += delta;
+        }
+        return;
+      } else if (direction === 'prev' && curLeft > 10) {
+        if (typeof this.scrollContainer.scrollBy === 'function') {
+          this.scrollContainer.scrollBy({ left: delta, behavior: 'smooth' });
+        } else {
+          this.scrollContainer.scrollLeft += delta;
+        }
+        return;
+      }
+    }
+
+    // Otherwise, jump to next/previous page
+    if (direction === 'next') {
+      this.nextPage();
+    } else {
+      this.prevPage();
     }
   }
 
@@ -682,5 +729,8 @@ export class CanvasViewer {
     }
     this.pagesWrapper.innerHTML = '';
     this.pageRecords = [];
+    if (this.rootElement.parentNode) {
+      this.rootElement.parentNode.removeChild(this.rootElement);
+    }
   }
 }

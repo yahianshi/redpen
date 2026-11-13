@@ -624,6 +624,7 @@ class ClassroomStylusApp {
       previewHost.style.setProperty('display', 'flex', 'important');
       previewHost.style.setProperty('flex-direction', 'column', 'important');
       previewHost.style.setProperty('overflow', 'hidden', 'important');
+      previewHost.style.setProperty('overscroll-behavior', 'contain', 'important');
 
       this.overlayContainer.style.cssText = `
         position: absolute !important;
@@ -640,6 +641,7 @@ class ClassroomStylusApp {
         display: flex !important;
         flex-direction: column !important;
         overflow: hidden !important;
+        overscroll-behavior: contain !important;
       `;
       previewHost.appendChild(this.overlayContainer);
     } else {
@@ -656,12 +658,18 @@ class ClassroomStylusApp {
         display: flex !important;
         flex-direction: column !important;
         overflow: hidden !important;
+        overscroll-behavior: contain !important;
       `;
       document.body.appendChild(this.overlayContainer);
     }
 
     // 6. Read user settings & mount Toolbar
     const settings = await storage.getSettings();
+
+    if (this.toolbar) {
+      this.toolbar.destroy();
+      this.toolbar = null;
+    }
 
     this.toolbar = new GradingToolbar(
       {
@@ -708,8 +716,8 @@ class ClassroomStylusApp {
         onZoomIn: () => this.canvasViewer?.zoomIn(),
         onZoomOut: () => this.canvasViewer?.zoomOut(),
         onZoomReset: () => this.canvasViewer?.resetZoom(),
-        onPrevPage: () => this.canvasViewer?.prevPage(),
-        onNextPage: () => this.canvasViewer?.nextPage(),
+        onPrevPage: () => this.canvasViewer?.scrollHorizontallyOrPage('prev'),
+        onNextPage: () => this.canvasViewer?.scrollHorizontallyOrPage('next'),
         onScrollHalfPageDown: () => this.canvasViewer?.scrollHalfPageDown(),
         onScrollHalfPageUp: () => this.canvasViewer?.scrollHalfPageUp(),
       },
@@ -1078,8 +1086,7 @@ class ClassroomStylusApp {
     }
 
     if (this.toolbar) {
-      const el = this.toolbar.getElement();
-      if (el.parentNode) el.parentNode.removeChild(el);
+      this.toolbar.destroy();
       this.toolbar = null;
     }
 

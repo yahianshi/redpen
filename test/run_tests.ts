@@ -245,6 +245,119 @@ async function runTestSuite() {
     failed++;
   }
 
+  // --- Test 5: Keyboard Shortcuts & Event Isolation ---
+  console.log('\n--- Suite 5: Keydown Listener Isolation & Repeat Suppression ---');
+  try {
+    // Setup minimal DOM mock
+    const listeners: { [evt: string]: Function[] } = { keydown: [], click: [] };
+    const winMock: any = {
+      addEventListener: (type: string, fn: Function) => {
+        if (!listeners[type]) listeners[type] = [];
+        listeners[type].push(fn);
+      },
+      removeEventListener: (type: string, fn: Function) => {
+        if (listeners[type]) {
+          listeners[type] = listeners[type].filter((f) => f !== fn);
+        }
+      },
+    };
+    const mockContainer: any = {
+      isConnected: true,
+      className: '',
+      innerHTML: '',
+      parentNode: null,
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      contains: () => false,
+    };
+    const docMock: any = {
+      activeElement: null,
+      createElement: () => ({ ...mockContainer }),
+      addEventListener: (type: string, fn: Function) => {
+        if (!listeners[type]) listeners[type] = [];
+        listeners[type].push(fn);
+      },
+      removeEventListener: (type: string, fn: Function) => {
+        if (listeners[type]) {
+          listeners[type] = listeners[type].filter((f) => f !== fn);
+        }
+      },
+      body: { appendChild: () => {}, removeChild: () => {} },
+    };
+
+    (global as any).window = winMock;
+    (global as any).document = docMock;
+
+    const { GradingToolbar } = await import('../src/ui/toolbar');
+
+    let undoCount = 0;
+    let redoCount = 0;
+    let nextCount = 0;
+
+    const tb = new GradingToolbar({
+      onToolSelect: () => {},
+      onPenColorChange: () => {},
+      onPenThicknessChange: () => {},
+      onHighlighterColorChange: () => {},
+      onUndo: () => { undoCount++; },
+      onRedo: () => { redoCount++; },
+      onTogglePenOnly: () => {},
+      onRestoreOriginal: () => {},
+      onClose: () => {},
+      onNextPage: () => { nextCount++; },
+      onPrevPage: () => {},
+    });
+
+    // Verify key listener was registered
+    assert(listeners['keydown'].length === 1, 'Keydown listener registered on window');
+
+    // Simulate single Ctrl+Z
+    let prevented = false;
+    let stopped = false;
+    const makeKeyEvent = (key: string, ctrl: boolean, repeat: boolean) => ({
+      key,
+      ctrlKey: ctrl,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      repeat,
+      preventDefault: () => { prevented = true; },
+      stopPropagation: () => { stopped = true; },
+      stopImmediatePropagation: () => { stopped = true; },
+    });
+
+    // Test 1: Single Ctrl+Z triggers undo once and stops propagation
+    listeners['keydown'][0](makeKeyEvent('z', true, false));
+    assert(undoCount === 1, 'Single Ctrl+Z fires onUndo exactly once');
+    assert(prevented === true, 'Ctrl+Z calls preventDefault');
+    assert(stopped === true, 'Ctrl+Z calls stopPropagation to protect Classroom');
+
+    // Test 2: Key repeat (holding Ctrl+Z) does NOT fire multiple undos
+    prevented = false;
+    stopped = false;
+    listeners['keydown'][0](makeKeyEvent('z', true, true)); // repeat: true
+    assert(undoCount === 1, 'Holding Ctrl+Z with e.repeat=true does not trigger extra undos');
+
+    // Test 3: ArrowRight stops propagation so Classroom does not scroll
+    stopped = false;
+    listeners['keydown'][0](makeKeyEvent('ArrowRight', false, false));
+    assert(nextCount === 1, 'ArrowRight triggers onNextPage');
+    assert(stopped === true, 'ArrowRight stops propagation to prevent Google Classroom page scrolling');
+
+    // Test 4: tb.destroy() cleans up listeners cleanly
+    tb.destroy();
+    assert(listeners['keydown'].length === 0, 'tb.destroy() unregisters keydown listener from window');
+
+    // Simulate key after destroy
+    listeners['keydown'].forEach((fn) => fn(makeKeyEvent('z', true, false)));
+    assert(undoCount === 1, 'No undos triggered after toolbar destroy');
+  } catch (e: any) {
+    console.error('Toolbar keydown test error:', e);
+    failed++;
+  }
+
   console.log(`\n========================================`);
   console.log(`Summary: ${passed} passed, ${failed} failed`);
   console.log(`========================================\n`);

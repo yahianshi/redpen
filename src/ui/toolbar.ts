@@ -51,6 +51,8 @@ export class GradingToolbar {
   private canUndo: boolean = false;
   private canRedo: boolean = false;
   private activePopover: 'pen' | 'highlighter' | 'text' | null = null;
+  private boundKeyHandler: ((e: KeyboardEvent) => void) | null = null;
+  private boundDocClickHandler: ((e: MouseEvent) => void) | null = null;
 
   constructor(events: ToolbarEvents, options: ToolbarOptions = {}) {
     this.events = events;
@@ -713,11 +715,27 @@ export class GradingToolbar {
     });
 
     // Close popover when clicking outside toolbar
-    document.addEventListener('click', (e) => {
+    this.boundDocClickHandler = (e: MouseEvent) => {
       if (!this.container.contains(e.target as Node)) {
         this.closeCustomPopover();
       }
-    });
+    };
+    document.addEventListener('click', this.boundDocClickHandler, true);
+  }
+
+  public destroy() {
+    if (this.boundKeyHandler) {
+      window.removeEventListener('keydown', this.boundKeyHandler, true);
+      this.boundKeyHandler = null;
+    }
+    if (this.boundDocClickHandler) {
+      document.removeEventListener('click', this.boundDocClickHandler, true);
+      this.boundDocClickHandler = null;
+    }
+    this.closeCustomPopover();
+    if (this.container.parentNode) {
+      this.container.parentNode.removeChild(this.container);
+    }
   }
 
   private showRestoreConfirmation() {
@@ -755,7 +773,12 @@ export class GradingToolbar {
   }
 
   private bindKeyShortcuts() {
-    window.addEventListener('keydown', (e) => {
+    this.boundKeyHandler = (e: KeyboardEvent) => {
+      // If toolbar element is no longer in DOM (e.g. canvas closed or student changed), do not handle events
+      if (!this.container.isConnected) {
+        return;
+      }
+
       // If user is typing in Classroom's right sidebar grade/comment input or floating text note, do not intercept
       const activeEl = document.activeElement;
       if (
@@ -769,78 +792,115 @@ export class GradingToolbar {
 
       // Close popover on Escape
       if (e.key === 'Escape' && this.activePopover) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         this.closeCustomPopover();
         return;
       }
 
       // Undo / Redo
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        if (e.repeat) return; // Prevent key-repeat from firing multiple undos in a single press
+
         if (e.shiftKey) {
-          e.preventDefault();
           this.events.onRedo();
         } else {
-          e.preventDefault();
           this.events.onUndo();
         }
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        if (e.repeat) return;
         this.events.onRedo();
       }
       // Hotkey: P for Pen
       else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        if (e.repeat) return;
         this.setActiveTool('pen');
       }
       // Hotkey: E for Eraser
       else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'e') {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        if (e.repeat) return;
         this.setActiveTool('eraser');
       }
       // Hotkey: H for Highlighter
       else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'h') {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        if (e.repeat) return;
         this.setActiveTool('highlighter');
       }
       // Hotkey: T for Text
       else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 't') {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        if (e.repeat) return;
         this.setActiveTool('text');
       }
-      // Hotkey: Next Page (ArrowRight, PageDown, ])
+      // Hotkey: Next Page / Scroll Right (ArrowRight, PageDown, ])
       else if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ']')) {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         this.events.onNextPage?.();
       }
-      // Hotkey: Previous Page (ArrowLeft, PageUp, [)
+      // Hotkey: Previous Page / Scroll Left (ArrowLeft, PageUp, [)
       else if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'ArrowLeft' || e.key === 'PageUp' || e.key === '[')) {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         this.events.onPrevPage?.();
       }
       // Hotkey: Scroll Half Page Down (ArrowDown)
       else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === 'ArrowDown') {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         this.events.onScrollHalfPageDown?.();
       }
       // Hotkey: Scroll Half Page Up (ArrowUp)
       else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === 'ArrowUp') {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         this.events.onScrollHalfPageUp?.();
       }
       // Hotkey: Zoom In (+ or =)
       else if (!e.ctrlKey && !e.metaKey && (e.key === '=' || e.key === '+')) {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         this.events.onZoomIn?.();
       }
       // Hotkey: Zoom Out (- or _)
       else if (!e.ctrlKey && !e.metaKey && (e.key === '-' || e.key === '_')) {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         this.events.onZoomOut?.();
       }
       // Hotkey: Reset Zoom (0)
       else if (!e.ctrlKey && !e.metaKey && e.key === '0') {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         this.events.onZoomReset?.();
       }
-    });
+    };
+
+    window.addEventListener('keydown', this.boundKeyHandler, true);
   }
 }
